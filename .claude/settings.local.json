@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.inatur.no)",
+      "Bash(node fetch-cabins.mjs)",
+      "Bash(lsof -i :8765)",
+      "Bash(lsof -ti :8765)",
+      "Bash(xargs kill -9)"
+    ]
+  }
+}
