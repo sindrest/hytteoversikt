@@ -1,0 +1,12 @@
+{
+  "name": "inatur-hytteoversikt",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public",
+    "fetch-cabins": "node fetch-cabins.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iNatur Hytteoversikt</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f4f0; color: #1a1a1a; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      background: #2c6e49;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    header span { font-size: 0.8rem; opacity: .8; }
+    .header-stats { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .stat-badge { background: rgba(255,255,255,.2); padding: 2px 10px; border-radius: 20px; font-size: .8rem; white-space: nowrap; }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* SIDEBAR */
+    #sidebar {
+      width: 360px;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #ddd;
+      flex-shrink: 0;
+    }
+
+    #filters {
+      padding: 14px;
+      background: #f8fdf9;
+      border-bottom: 1px solid #e0e8e0;
+    }
+    #filters h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: #555; margin-bottom: 10px; }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .filter-row label { font-size: .78rem; color: #555; width: 90px; flex-shrink: 0; }
+    .filter-row input, .filter-row select {
+      flex: 1; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: .8rem; background: white;
+    }
+    #btn-filter {
+      width: 100%; padding: 8px; background: #2c6e49; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-size: .85rem;
+      margin-top: 4px; font-weight: 600;
+    }
+    #btn-filter:hover { background: #235c3c; }
+    #btn-reset {
+      width: 100%; padding: 6px; background: transparent; color: #888;
+      border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: .78rem;
+      margin-top: 4px;
+    }
+    #btn-reset:hover { background: #f5f5f5; }
+
+    .amenity-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .amenity-chip {
+      font-size: .7rem; padding: 2px 8px; border-radius: 12px;
+      border: 1px solid #ccc; cursor: pointer; background: white; color: #555;
+      user-select: none; transition: all .15s;
+    }
+    .amenity-chip.active { background: #2c6e49; color: white; border-color: #2c6e49; }
+
+    #cabin-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .cabin-card {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      background: white;
+      border: 1px solid #e0e8e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .cabin-card:hover, .cabin-card.active {
+      border-color: #2c6e49;
+      box-shadow: 0 0 0 2px rgba(44,110,73,.15);
+    }
+    .cabin-card.sold-out { opacity: .6; }
+    .cabin-card h3 { font-size: .85rem; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cabin-card .cabin-location { font-size: .72rem; color: #888; margin-bottom: 4px; }
+    .cabin-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cabin-tag {
+      font-size: .68rem; padding: 1px 7px; border-radius: 12px; background: #e8f4ed; color: #2c6e49;
+    }
+    .cabin-tag.price { background: #fff3e0; color: #e65100; }
+    .cabin-tag.beds { background: #e3f2fd; color: #1565c0; }
+    .cabin-tag.sold { background: #fde; color: #900; }
+    .cabin-tag.available { background: #e8f5e9; color: #2e7d32; }
+    .cabin-tag.unavailable { background: #fde; color: #900; }
+
+    #date-status.loading::before {
+      content: ''; display: inline-block; width: 10px; height: 10px;
+      border: 2px solid #e0e8e0; border-top-color: #2c6e49; border-radius: 50%;
+      animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle;
+    }
+
+    #map { flex: 1; }
+
+    .leaflet-popup-content { min-width: 220px; max-width: 300px; }
+    .popup-img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
+    .popup-title { font-weight: 700; font-size: .95rem; margin-bottom: 4px; color: #2c6e49; }
+    .popup-desc { font-size: .78rem; color: #555; margin-bottom: 6px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .popup-meta { font-size: .8rem; color: #444; margin-bottom: 3px; }
+    .popup-amenities { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; }
+    .popup-amenity { font-size: .65rem; padding: 1px 6px; border-radius: 10px; background: #f0f4f0; color: #555; }
+    .popup-link { display: inline-block; margin-top: 6px; padding: 5px 14px; background: #2c6e49; color: white; border-radius: 5px; text-decoration: none; font-size: .8rem; }
+    .popup-link:hover { background: #235c3c; }
+
+    .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
+
+    #loading {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,.9); display: flex; align-items: center;
+      justify-content: center; z-index: 9999; flex-direction: column; gap: 12px;
+    }
+    #loading .spinner { width: 40px; height: 40px; border: 4px solid #e0e8e0; border-top-color: #2c6e49; border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #555; font-size: .9rem; }
+
+    .marker-cluster-small { background-color: rgba(44,110,73,.3); }
+    .marker-cluster-small div { background-color: rgba(44,110,73,.6); color: white; }
+    .marker-cluster-medium { background-color: rgba(44,110,73,.4); }
+    .marker-cluster-medium div { background-color: rgba(44,110,73,.7); color: white; }
+    .marker-cluster-large { background-color: rgba(44,110,73,.5); }
+    .marker-cluster-large div { background-color: rgba(44,110,73,.8); color: white; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Laster hyttedata...</p>
+</div>
+
+<header>
+  <div>
+    <h1>iNatur Hytteoversikt</h1>
+    <span>Kart over hytter til leie</span>
+  </div>
+  <div class="header-stats">
+    <span class="stat-badge" id="cabin-count">0 hytter</span>
+    <span class="stat-badge" id="cabin-shown">0 vist</span>
+  </div>
+</header>
+
+<div class="main">
+  <div id="sidebar">
+
+    <div id="filters">
+      <h2>Filtrer hytter</h2>
+      <div class="filter-row">
+        <label>Ledig fra</label>
+        <input type="date" id="f-date-from" />
+      </div>
+      <div class="filter-row">
+        <label>Ledig til</label>
+        <input type="date" id="f-date-to" />
+      </div>
+      <div id="date-status" style="display:none; font-size:.72rem; padding:4px 0 4px 98px; color:#2c6e49;"></div>
+      <div class="filter-row">
+        <label>Fritekst</label>
+        <input type="text" id="f-search" placeholder="Navn, sted, beskrivelse..." />
+      </div>
+      <div class="filter-row">
+        <label>Fylke</label>
+        <select id="f-county">
+          <option value="">Alle fylker</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <label>Kommune</label>
+        <select id="f-municipality">
+          <option value="">Alle kommuner</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <label>Min. senger</label>
+        <input type="number" id="f-beds" min="1" max="30" placeholder="Ant." />
+      </div>
+      <div class="filter-row">
+        <label>Maks pris</label>
+        <input type="number" id="f-price" min="0" placeholder="kr/natt" />
+      </div>
+      <div class="filter-row">
+        <label>Fasiliteter</label>
+      </div>
+      <div class="amenity-filters" id="amenity-filters"></div>
+      <div class="filter-row" style="margin-top:6px">
+        <label>Vis opptatt</label>
+        <select id="f-available">
+          <option value="all">Ja, vis alle</option>
+          <option value="available" selected>Bare ledige</option>
+        </select>
+      </div>
+      <button id="btn-filter">Filtrer</button>
+      <button id="btn-reset">Nullstill filter</button>
+    </div>
+
+    <div id="cabin-list">
+      <div class="no-results">Laster...</div>
+    </div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<script>
+// ──────────────── AMENITY LABELS ────────────────
+const AMENITY_LABELS = {
+  heating: 'Oppvarming', electricity: 'Strøm', cellularCoverage: 'Mobildekning',
+  parking: 'Parkering', outdoorToilet: 'Utedo', indoorToilet: 'Innendørs toalett',
+  cooking: 'Kjøkken', refrigerator: 'Kjøleskap', duvetsPillows: 'Dyner/puter',
+  pet: 'Husdyr tillatt', shower: 'Dusj', boat: 'Båt', canoe: 'Kano',
+  wifi: 'WiFi', sauna: 'Badstue', fishingEquipment: 'Fiskeutstyr',
+  drinkingWater: 'Drikkevann', fireplace: 'Peis', grill: 'Grill',
+  bedLinen: 'Sengetøy', towels: 'Håndklær', dishwasher: 'Oppvaskmaskin',
+  washingMachine: 'Vaskemaskin', tv: 'TV', wheelchairAccessible: 'Rullestol',
+  hotTub: 'Boblebad', swimmingPool: 'Svømmebasseng',
+  kitchenware: 'Kjøkkenutstyr', oven: 'Ovn', freezer: 'Fryser',
+  boatAvailable: 'Båt tilgjengelig', woodBurningStove: 'Vedovn',
+  terrace: 'Terrasse', garden: 'Hage', smokeFree: 'Røykfritt',
+  accessibility: 'Tilgjengelighet', airConditioning: 'Klimaanlegg',
+};
+
+// ──────────────── MAP SETUP ────────────────
+const map = L.map('map').setView([64.5, 14.0], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 18
+}).addTo(map);
+
+const clusterGroup = L.markerClusterGroup({
+  maxClusterRadius: 50,
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  disableClusteringAtZoom: 13,
+});
+map.addLayer(clusterGroup);
+
+let allCabins = [];
+let markerMap = {};
+let availableIds = null;  // null = no date filter, Set = filtered IDs
+
+// ──────────────── LOAD DATA ────────────────
+async function loadData() {
+  try {
+    const res = await fetch('cabins-data.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    allCabins = data.cabins.filter(c => c.lat && c.lng);
+    document.getElementById('cabin-count').textContent = `${allCabins.length} hytter`;
+    populateFilters();
+    applyFilters();
+    document.getElementById('loading').style.display = 'none';
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `
+      <p style="color:#c00;max-width:400px;text-align:center">
+        <strong>Kunne ikke laste cabins-data.json</strong><br><br>
+        Kjør først: <code>node fetch-cabins.mjs</code><br>
+        Deretter start serveren:<br>
+        <code>node server.mjs</code><br><br>
+        <small>${e.message}</small>
+      </p>`;
+  }
+}
+
+// ──────────────── DATE AVAILABILITY API ────────────────
+async function fetchAvailableCabinIds(fromDate, toDate) {
+  const fra = new Date(fromDate).getTime();
+  const til = new Date(toDate).getTime();
+  const filter = JSON.stringify([{felt:'type', sokeord:'hyttetilbud'}]);
+  const ids = new Set();
+  let page = 0;
+  let totalPages = 1;
+
+  while (page < totalPages) {
+    // Fetch up to 4 pages in parallel
+    const batch = [];
+    const batchEnd = Math.min(page + 4, totalPages);
+    for (let p = page; p < batchEnd; p++) {
+      const params = new URLSearchParams({ f: filter, fra: String(fra), til: String(til), ledig: 'true', p: String(p) });
+      batch.push(
+        fetch(`/api/inatur/internal/search?${params}`)
+          .then(r => r.json())
+          .then(json => {
+            totalPages = json.paginering.totaltAntallSider;
+            for (const r of json.resultat) ids.add(r.id);
+            return json;
+          })
+      );
+    }
+    await Promise.all(batch);
+    page = batchEnd;
+  }
+  return ids;
+}
+
+// ──────────────── POPULATE FILTERS ────────────────
+function populateFilters() {
+  const counties = [...new Set(allCabins.flatMap(c => c.counties))].sort();
+  const sel = document.getElementById('f-county');
+  sel.innerHTML = '<option value="">Alle fylker</option>' + counties.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Amenity filter chips
+  const amenityCounts = {};
+  allCabins.forEach(c => (c.amenities || []).forEach(a => { amenityCounts[a] = (amenityCounts[a] || 0) + 1; }));
+  const topAmenities = Object.entries(amenityCounts).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  const container = document.getElementById('amenity-filters');
+  container.innerHTML = topAmenities.map(([key]) =>
+    `<span class="amenity-chip" data-amenity="${key}">${AMENITY_LABELS[key] || key}</span>`
+  ).join('');
+  container.addEventListener('click', e => {
+    if (e.target.classList.contains('amenity-chip')) {
+      e.target.classList.toggle('active');
+    }
+  });
+}
+
+function updateMunicipalityFilter(county) {
+  const cabins = county ? allCabins.filter(c => c.counties.includes(county)) : allCabins;
+  const municipalities = [...new Set(cabins.flatMap(c => c.municipalities))].sort();
+  const sel = document.getElementById('f-municipality');
+  sel.innerHTML = '<option value="">Alle kommuner</option>' + municipalities.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+document.getElementById('f-county').addEventListener('change', function() {
+  updateMunicipalityFilter(this.value);
+});
+
+// ──────────────── FILTER ────────────────
+async function applyFilters() {
+  const dateFrom = document.getElementById('f-date-from').value;
+  const dateTo = document.getElementById('f-date-to').value;
+  const dateStatus = document.getElementById('date-status');
+
+  // Live availability check if dates are set
+  if (dateFrom && dateTo && new Date(dateTo) > new Date(dateFrom)) {
+    dateStatus.style.display = 'block';
+    dateStatus.className = 'loading';
+    dateStatus.textContent = 'Sjekker ledighet mot iNatur...';
+    try {
+      availableIds = await fetchAvailableCabinIds(dateFrom, dateTo);
+      dateStatus.className = '';
+      dateStatus.textContent = `${availableIds.size} hytter ledige i valgt periode`;
+      dateStatus.style.color = '#2c6e49';
+    } catch (e) {
+      dateStatus.className = '';
+      dateStatus.textContent = `Feil ved sjekk av ledighet: ${e.message}`;
+      dateStatus.style.color = '#c00';
+      availableIds = null;
+    }
+  } else {
+    availableIds = null;
+    dateStatus.style.display = dateFrom || dateTo ? 'block' : 'none';
+    if ((dateFrom && !dateTo) || (!dateFrom && dateTo)) {
+      dateStatus.textContent = 'Velg både fra- og til-dato';
+      dateStatus.style.color = '#888';
+    }
+  }
+
+  const search = document.getElementById('f-search').value.toLowerCase().trim();
+  const minBeds = parseInt(document.getElementById('f-beds').value) || 0;
+  const maxPrice = parseInt(document.getElementById('f-price').value) || Infinity;
+  const county = document.getElementById('f-county').value;
+  const municipality = document.getElementById('f-municipality').value;
+  const availability = document.getElementById('f-available').value;
+  const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
+
+  const filtered = allCabins.filter(c => {
+    // Date availability filter
+    if (availableIds !== null && !availableIds.has(c.id)) return false;
+    if (search) {
+      const hay = `${c.name} ${c.description} ${c.stedsnavn || ''} ${c.municipalities.join(' ')} ${c.counties.join(' ')} ${c.provider}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    if (minBeds && c.beds < minBeds) return false;
+    if (maxPrice < Infinity && c.priceFrom > maxPrice) return false;
+    if (county && !c.counties.includes(county)) return false;
+    if (municipality && !c.municipalities.includes(municipality)) return false;
+    if (availability === 'available' && c.soldOut) return false;
+    if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
+    return true;
+  });
+
+  updateList(filtered);
+  updateMap(filtered);
+  document.getElementById('cabin-shown').textContent = `${filtered.length} vist`;
+}
+
+// ──────────────── LIST ────────────────
+function updateList(cabins) {
+  const el = document.getElementById('cabin-list');
+  if (!cabins.length) {
+    el.innerHTML = '<div class="no-results">Ingen hytter matcher filteret.</div>';
+    return;
+  }
+  const shown = cabins.slice(0, 200);
+  const extra = cabins.length > 200 ? `<div class="no-results">Viser ${shown.length} av ${cabins.length}. Bruk filter for å begrense.</div>` : '';
+  el.innerHTML = shown.map(c => `
+    <div class="cabin-card${c.soldOut ? ' sold-out' : ''}" data-id="${c.id}" onclick="focusCabin('${c.id}')">
+      <h3>${esc(c.name)}</h3>
+      <div class="cabin-location">${esc(c.municipalities.join(', '))}${c.counties.length ? ' — ' + esc(c.counties.join(', ')) : ''}</div>
+      <div class="cabin-meta">
+        ${c.beds ? `<span class="cabin-tag beds">${c.beds} senger</span>` : ''}
+        ${c.priceFrom ? `<span class="cabin-tag price">fra ${c.priceFrom} kr</span>` : ''}
+        ${c.soldOut ? `<span class="cabin-tag sold">Opptatt</span>` : ''}
+      </div>
+    </div>
+  `).join('') + extra;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ──────────────── MAP ────────────────
+function updateMap(cabins) {
+  clusterGroup.clearLayers();
+  markerMap = {};
+
+  cabins.forEach(c => {
+    if (!c.lat || !c.lng) return;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:12px;height:12px;background:${c.soldOut ? '#c0392b' : '#2c6e49'};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
+    });
+
+    const amenityHtml = (c.amenities || []).slice(0, 8).map(a =>
+      `<span class="popup-amenity">${AMENITY_LABELS[a] || a}</span>`
+    ).join('');
+
+    const imgHtml = c.image ? `<img class="popup-img" src="${c.image}/w=300,h=180,fit=cover,format=auto" onerror="this.style.display='none'" />` : '';
+
+    const m = L.marker([c.lat, c.lng], { icon })
+      .bindPopup(`
+        ${imgHtml}
+        <div class="popup-title">${esc(c.name)}</div>
+        ${c.description ? `<div class="popup-desc">${esc(c.description)}</div>` : ''}
+        ${c.beds ? `<div class="popup-meta">Senger: ${c.beds}</div>` : ''}
+        ${c.priceFrom ? `<div class="popup-meta">Fra ${c.priceFrom} kr/natt</div>` : ''}
+        <div class="popup-meta">${esc(c.municipalities.join(', '))} — ${esc(c.counties.join(', '))}</div>
+        ${c.provider ? `<div class="popup-meta" style="color:#888;font-size:.75rem">Tilbyder: ${esc(c.provider)}</div>` : ''}
+        ${amenityHtml ? `<div class="popup-amenities">${amenityHtml}</div>` : ''}
+        <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
+      `, { maxWidth: 300 });
+
+    clusterGroup.addLayer(m);
+    markerMap[c.id] = m;
+  });
+}
+
+function focusCabin(id) {
+  document.querySelectorAll('.cabin-card').forEach(el => el.classList.remove('active'));
+  const card = document.querySelector(`.cabin-card[data-id="${id}"]`);
+  if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+
+  const m = markerMap[id];
+  if (m) {
+    clusterGroup.zoomToShowLayer(m, () => {
+      m.openPopup();
+    });
+  }
+}
+
+// ──────────────── EVENTS ────────────────
+document.getElementById('btn-filter').addEventListener('click', applyFilters);
+document.getElementById('f-search').addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  document.getElementById('f-date-from').value = '';
+  document.getElementById('f-date-to').value = '';
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-beds').value = '';
+  document.getElementById('f-price').value = '';
+  document.getElementById('f-county').value = '';
+  document.getElementById('f-municipality').innerHTML = '<option value="">Alle kommuner</option>';
+  document.getElementById('f-available').value = 'available';
+  document.getElementById('date-status').style.display = 'none';
+  document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
+  availableIds = null;
+  applyFilters();
+});
+
+// ──────────────── INIT ────────────────
+loadData();
+</script>
+</body>
+</html>
