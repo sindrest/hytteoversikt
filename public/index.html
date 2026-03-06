@@ -210,6 +210,15 @@
 
       body.mobile-view-map #sidebar { display: none; }
       body.mobile-view-list #map { display: none; }
+      body.mobile-view-list #sidebar {
+        display: block;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      body.mobile-view-list #cabin-list {
+        flex: none;
+        overflow: visible;
+      }
 
       #filters { padding: 12px; }
       #filters h2 { margin-bottom: 8px; font-size: .76rem; }
@@ -273,7 +282,7 @@
   </div>
   <div id="mobile-view-switch" aria-label="Velg visning">
     <button type="button" class="mobile-view-btn active" data-view="map">Kart</button>
-    <button type="button" class="mobile-view-btn" data-view="list">Liste</button>
+    <button type="button" class="mobile-view-btn" data-view="list">Filter</button>
   </div>
   <div class="header-stats">
     <span class="stat-badge" id="cabin-count">0 hytter</span>
