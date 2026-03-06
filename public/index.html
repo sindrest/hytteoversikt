@@ -11,7 +11,15 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f4f0; color: #1a1a1a; height: 100vh; display: flex; flex-direction: column; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f0;
+      color: #1a1a1a;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
 
     header {
       background: #2c6e49;
@@ -27,6 +35,28 @@
     header span { font-size: 0.8rem; opacity: .8; }
     .header-stats { margin-left: auto; display: flex; gap: 8px; align-items: center; }
     .stat-badge { background: rgba(255,255,255,.2); padding: 2px 10px; border-radius: 20px; font-size: .8rem; white-space: nowrap; }
+    #mobile-view-switch {
+      display: none;
+      margin-left: auto;
+      gap: 4px;
+      background: rgba(255,255,255,.16);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    .mobile-view-btn {
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,.9);
+      font-size: .74rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .mobile-view-btn.active {
+      background: white;
+      color: #2c6e49;
+    }
 
     .main { display: flex; flex: 1; overflow: hidden; }
 
@@ -139,9 +169,97 @@
     .marker-cluster-medium div { background-color: rgba(44,110,73,.7); color: white; }
     .marker-cluster-large { background-color: rgba(44,110,73,.5); }
     .marker-cluster-large div { background-color: rgba(44,110,73,.8); color: white; }
+
+    @media (max-width: 1024px) {
+      #sidebar { width: 320px; }
+    }
+
+    @media (max-width: 900px) {
+      header {
+        padding: 10px 12px;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      header h1 { font-size: 1rem; }
+      header span { font-size: .75rem; }
+      #mobile-view-switch { display: inline-flex; }
+      .header-stats {
+        margin-left: 0;
+        width: 100%;
+        order: 3;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .stat-badge { font-size: .72rem; }
+
+      .main {
+        display: block;
+        position: relative;
+        min-height: 0;
+      }
+      #map,
+      #sidebar {
+        width: 100%;
+        height: 100%;
+      }
+      #sidebar {
+        border-right: 0;
+        border-top: 1px solid #ddd;
+      }
+
+      body.mobile-view-map #sidebar { display: none; }
+      body.mobile-view-list #map { display: none; }
+
+      #filters { padding: 12px; }
+      #filters h2 { margin-bottom: 8px; font-size: .76rem; }
+      .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+      .filter-row label { width: auto; font-size: .75rem; }
+      .filter-row input,
+      .filter-row select {
+        padding: 8px 10px;
+        font-size: 16px;
+      }
+      #date-status {
+        padding-left: 0 !important;
+        font-size: .75rem !important;
+      }
+      #btn-filter,
+      #btn-reset {
+        min-height: 40px;
+      }
+      .amenity-filters { gap: 6px; }
+      .amenity-chip {
+        font-size: .76rem;
+        padding: 4px 10px;
+      }
+
+      #cabin-list { padding: 10px; }
+      .cabin-card {
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 10px;
+      }
+      .cabin-card h3 {
+        font-size: .92rem;
+        white-space: normal;
+      }
+      .cabin-card .cabin-location { font-size: .78rem; }
+      .cabin-tag {
+        font-size: .74rem;
+        padding: 2px 8px;
+      }
+
+      .leaflet-control-attribution { font-size: 10px; }
+    }
   </style>
 </head>
-<body>
+<body class="mobile-view-map">
 
 <div id="loading">
   <div class="spinner"></div>
@@ -152,6 +270,10 @@
   <div>
     <h1>iNatur Hytteoversikt</h1>
     <span>Kart over hytter til leie</span>
+  </div>
+  <div id="mobile-view-switch" aria-label="Velg visning">
+    <button type="button" class="mobile-view-btn active" data-view="map">Kart</button>
+    <button type="button" class="mobile-view-btn" data-view="list">Liste</button>
   </div>
   <div class="header-stats">
     <span class="stat-badge" id="cabin-count">0 hytter</span>
@@ -256,6 +378,61 @@ map.addLayer(clusterGroup);
 let allCabins = [];
 let markerMap = {};
 let availableIds = null;  // null = no date filter, Set = filtered IDs
+const MOBILE_BREAKPOINT = 900;
+
+const mobileViewSwitch = document.getElementById('mobile-view-switch');
+const mobileViewButtons = mobileViewSwitch ? [...mobileViewSwitch.querySelectorAll('.mobile-view-btn')] : [];
+
+function isMobileViewport() {
+  return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function updateMobileViewButtons(view) {
+  mobileViewButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === view));
+}
+
+function refreshMapSize() {
+  requestAnimationFrame(() => {
+    if (!isMobileViewport() || document.body.classList.contains('mobile-view-map')) {
+      map.invalidateSize();
+    }
+  });
+}
+
+function setMobileView(view) {
+  if (!isMobileViewport()) return;
+  const nextView = view === 'list' ? 'list' : 'map';
+  document.body.classList.remove('mobile-view-map', 'mobile-view-list');
+  document.body.classList.add(`mobile-view-${nextView}`);
+  updateMobileViewButtons(nextView);
+  refreshMapSize();
+}
+
+function setupMobileViewToggle() {
+  if (!mobileViewSwitch) return;
+
+  mobileViewButtons.forEach(btn => {
+    btn.addEventListener('click', () => setMobileView(btn.dataset.view));
+  });
+
+  const syncMobileLayout = () => {
+    if (isMobileViewport()) {
+      const activeView = document.body.classList.contains('mobile-view-list') ? 'list' : 'map';
+      document.body.classList.remove('mobile-view-map', 'mobile-view-list');
+      document.body.classList.add(`mobile-view-${activeView}`);
+      updateMobileViewButtons(activeView);
+      refreshMapSize();
+      return;
+    }
+
+    document.body.classList.remove('mobile-view-map', 'mobile-view-list');
+    mobileViewButtons.forEach(btn => btn.classList.remove('active'));
+    refreshMapSize();
+  };
+
+  window.addEventListener('resize', syncMobileLayout);
+  syncMobileLayout();
+}
 
 // ──────────────── LOAD DATA ────────────────
 async function loadData() {
@@ -272,9 +449,9 @@ async function loadData() {
     document.getElementById('loading').innerHTML = `
       <p style="color:#c00;max-width:400px;text-align:center">
         <strong>Kunne ikke laste cabins-data.json</strong><br><br>
-        Kjør først: <code>node fetch-cabins.mjs</code><br>
-        Deretter start serveren:<br>
-        <code>node server.mjs</code><br><br>
+        Kjør først: <code>npm run fetch-cabins</code><br>
+        Deretter start lokalt:<br>
+        <code>npm run dev</code><br><br>
         <small>${e.message}</small>
       </p>`;
   }
@@ -473,9 +650,19 @@ function focusCabin(id) {
 
   const m = markerMap[id];
   if (m) {
-    clusterGroup.zoomToShowLayer(m, () => {
-      m.openPopup();
-    });
+    const openMarker = () => {
+      clusterGroup.zoomToShowLayer(m, () => {
+        m.openPopup();
+      });
+    };
+
+    if (isMobileViewport()) {
+      setMobileView('map');
+      setTimeout(openMarker, 140);
+      return;
+    }
+
+    openMarker();
   }
 }
 
@@ -499,6 +686,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 });
 
 // ──────────────── INIT ────────────────
+setupMobileViewToggle();
 loadData();
 </script>
 </body>

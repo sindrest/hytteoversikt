@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // Local server that serves static files AND proxies iNatur API calls
 // Usage: node server.mjs
-// Then open http://localhost:8765/inatur-map.html
+// Then open http://localhost:8765/
 
 import { createServer } from 'http';
 import { readFile, stat } from 'fs/promises';
-import { join, extname } from 'path';
+import { extname, join, normalize, sep } from 'path';
 
 const PORT = 8765;
 const INATUR_BASE = 'https://www.inatur.no';
+const PUBLIC_DIR = join(process.cwd(), 'public');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -48,8 +49,16 @@ async function handleProxy(req, res) {
 }
 
 async function handleStatic(req, res) {
-  const urlPath = req.url.split('?')[0];
-  const filePath = join(process.cwd(), urlPath === '/' ? '/inatur-map.html' : urlPath);
+  const urlPath = (req.url || '/').split('?')[0];
+  const routePath = (urlPath === '/' || urlPath === '/inatur-map.html') ? '/index.html' : urlPath;
+  const normalizedPath = normalize(routePath.replace(/^\/+/, ''));
+  const filePath = join(PUBLIC_DIR, normalizedPath);
+
+  if (filePath !== PUBLIC_DIR && !filePath.startsWith(`${PUBLIC_DIR}${sep}`)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden');
+    return;
+  }
 
   try {
     await stat(filePath);
@@ -64,7 +73,8 @@ async function handleStatic(req, res) {
 }
 
 const server = createServer((req, res) => {
-  if (req.url.startsWith('/api/inatur/')) {
+  const requestPath = req.url || '/';
+  if (requestPath.startsWith('/api/inatur/')) {
     handleProxy(req, res);
   } else {
     handleStatic(req, res);
@@ -73,7 +83,7 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n  iNatur Hyttekart server kjører!`);
-  console.log(`  → http://localhost:${PORT}/inatur-map.html\n`);
-  console.log(`  Statiske filer serveres fra: ${process.cwd()}`);
+  console.log(`  → http://localhost:${PORT}/\n`);
+  console.log(`  Statiske filer serveres fra: ${PUBLIC_DIR}`);
   console.log(`  API-proxy: /api/inatur/* → ${INATUR_BASE}/*\n`);
 });

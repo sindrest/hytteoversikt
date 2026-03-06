@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Fetches all cabin data from iNatur and saves to cabins-data.json
-// Usage: node fetch-cabins.mjs
+// Fetches all cabin data from iNatur and saves to public/cabins-data.json
+// Usage: npm run fetch-cabins
 
 const SEARCH_URL = 'https://www.inatur.no/internal/search';
 const GEO_URL = 'https://inatur.geodataonline.no/arcgis/rest/services/inatur/Open-Inatur/MapServer/0/query';
@@ -116,9 +116,12 @@ async function main() {
     cabins,
   };
 
-  const { writeFileSync } = await import('fs');
-  writeFileSync('cabins-data.json', JSON.stringify(data, null, 2));
-  console.log(`\nLagret til cabins-data.json (${(JSON.stringify(data).length / 1024 / 1024).toFixed(1)} MB)`);
+  const { mkdirSync, writeFileSync } = await import('fs');
+  const { dirname } = await import('path');
+  const OUTPUT_PATH = 'public/cabins-data.json';
+  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
+  writeFileSync(OUTPUT_PATH, JSON.stringify(data, null, 2));
+  console.log(`\nLagret til ${OUTPUT_PATH} (${(JSON.stringify(data).length / 1024 / 1024).toFixed(1)} MB)`);
   console.log(`Ferdig på ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 }
 
