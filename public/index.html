@@ -60,6 +60,13 @@
 
     .main { display: flex; flex: 1; overflow: hidden; }
 
+    .map-pane {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+    }
+
     /* SIDEBAR */
     #sidebar {
       width: 360px;
@@ -148,7 +155,72 @@
       animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle;
     }
 
-    #map { flex: 1; }
+    #map { position: absolute; inset: 0; }
+
+    .weekend-rail {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 640;
+      padding: 10px 12px 12px;
+      background: linear-gradient(180deg, rgba(240,244,240,0) 0%, rgba(240,244,240,.92) 28%, rgba(240,244,240,.96) 100%);
+      pointer-events: none;
+    }
+    .weekend-rail-head {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #3f4f44;
+      margin-bottom: 6px;
+      pointer-events: none;
+    }
+    .weekend-rail-items {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 2px 2px 6px;
+      pointer-events: auto;
+    }
+    .weekend-rec {
+      flex: 0 0 auto;
+      border: 1px solid #d5e3d8;
+      background: #fff;
+      color: #1a1a1a;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: .8rem;
+      line-height: 1.3;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .weekend-rec:hover, .weekend-rec.active {
+      border-color: #2c6e49;
+      box-shadow: 0 0 0 2px rgba(44,110,73,.15);
+    }
+    .weekend-rec-name { font-weight: 600; }
+    .weekend-rec-sep { color: #888; }
+    .weekend-rec-dates { color: #2c6e49; font-weight: 600; }
+    .weekend-rail-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .78rem;
+      color: #555;
+      padding: 6px 2px 8px;
+      pointer-events: none;
+    }
+    .weekend-rail-spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid #e0e8e0;
+      border-top-color: #2c6e49;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      flex-shrink: 0;
+    }
 
     .leaflet-popup-content { min-width: 220px; max-width: 300px; }
     .popup-img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
@@ -303,7 +375,7 @@
         position: relative;
         min-height: 0;
       }
-      #map,
+      .map-pane,
       #sidebar {
         width: 100%;
         height: 100%;
@@ -314,7 +386,7 @@
       }
 
       body.mobile-view-map #sidebar { display: none; }
-      body.mobile-view-list #map { display: none; }
+      body.mobile-view-list .map-pane { display: none; }
       body.mobile-view-list #sidebar {
         display: block;
         overflow-y: auto;
@@ -370,6 +442,12 @@
       }
 
       .leaflet-control-attribution { font-size: 10px; }
+
+      .weekend-rail { padding: 8px 10px 14px; }
+      .weekend-rec {
+        padding: 10px 12px;
+        font-size: .82rem;
+      }
     }
   </style>
 </head>
@@ -473,7 +551,13 @@
     </div>
   </div>
 
-  <div id="map"></div>
+  <div class="map-pane">
+    <div id="map"></div>
+    <div id="weekend-rail" hidden>
+      <div class="weekend-rail-head">Anbefalt neste helger</div>
+      <div id="weekend-rail-items" class="weekend-rail-items"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -678,6 +762,7 @@ async function loadData() {
     populateFilters();
     applyFilters();
     document.getElementById('loading').style.display = 'none';
+    loadWeekendRecommendations();
   } catch (e) {
     document.getElementById('loading').innerHTML = `
       <p style="color:#c00;max-width:400px;text-align:center">
@@ -691,7 +776,10 @@ async function loadData() {
 }
 
 // ──────────────── DATE AVAILABILITY API ────────────────
-async function fetchAvailableCabinIds(fromDate, toDate) {
+const availabilityCache = new Map();
+const availabilityInflight = new Map();
+
+async function fetchAvailableCabinIdsUncached(fromDate, toDate) {
   const fra = new Date(fromDate).getTime();
   const til = new Date(toDate).getTime();
   const filter = JSON.stringify([{felt:'type', sokeord:'hyttetilbud'}]);
@@ -707,7 +795,10 @@ async function fetchAvailableCabinIds(fromDate, toDate) {
       const params = new URLSearchParams({ f: filter, fra: String(fra), til: String(til), ledig: 'true', p: String(p) });
       batch.push(
         fetch(`/api/inatur/internal/search?${params}`)
-          .then(r => r.json())
+          .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+          })
           .then(json => {
             totalPages = json.paginering.totaltAntallSider;
             for (const r of json.resultat) ids.add(r.id);
@@ -719,6 +810,163 @@ async function fetchAvailableCabinIds(fromDate, toDate) {
     page = batchEnd;
   }
   return ids;
+}
+
+async function fetchAvailableCabinIds(fromDate, toDate) {
+  const key = `${fromDate}|${toDate}`;
+  if (availabilityCache.has(key)) return availabilityCache.get(key);
+  if (availabilityInflight.has(key)) return availabilityInflight.get(key);
+  const pending = fetchAvailableCabinIdsUncached(fromDate, toDate)
+    .then(ids => {
+      availabilityCache.set(key, ids);
+      return ids;
+    })
+    .finally(() => availabilityInflight.delete(key));
+  availabilityInflight.set(key, pending);
+  return pending;
+}
+
+// ──────────────── WEEKEND RECOMMENDATIONS ────────────────
+const OSLO_TZ = 'Europe/Oslo';
+const NO_MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
+const WEEKEND_COUNT = 12;
+const WEEKEND_BATCH = 3;
+
+function osloTodayYmd() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: OSLO_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function addDaysYmd(ymd, days) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+function weekdayUtcYmd(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+function nextWeekendRanges(count) {
+  const today = osloTodayYmd();
+  const daysUntilFriday = (5 - weekdayUtcYmd(today) + 7) % 7;
+  const ranges = [];
+  for (let i = 0; i < count; i++) {
+    const friday = addDaysYmd(today, daysUntilFriday + i * 7);
+    ranges.push({ from: friday, to: addDaysYmd(friday, 2) });
+  }
+  return ranges;
+}
+
+function formatWeekendNo(fromYmd, toYmd) {
+  const [, fm, fd] = fromYmd.split('-').map(Number);
+  const [, tm, td] = toYmd.split('-').map(Number);
+  if (fm === tm) return `${fd}.–${td}. ${NO_MONTHS_SHORT[fm - 1]}`;
+  return `${fd}. ${NO_MONTHS_SHORT[fm - 1]}–${td}. ${NO_MONTHS_SHORT[tm - 1]}`;
+}
+
+function hideWeekendRail() {
+  const rail = document.getElementById('weekend-rail');
+  const items = document.getElementById('weekend-rail-items');
+  if (rail) rail.hidden = true;
+  if (items) items.innerHTML = '';
+}
+
+function setWeekendRailLoading() {
+  const rail = document.getElementById('weekend-rail');
+  const items = document.getElementById('weekend-rail-items');
+  if (!rail || !items) return;
+  items.innerHTML = '<div class="weekend-rail-loading"><span class="weekend-rail-spinner"></span>Sjekker ledige helger...</div>';
+  rail.hidden = false;
+}
+
+function renderWeekendRail(recs) {
+  const rail = document.getElementById('weekend-rail');
+  const items = document.getElementById('weekend-rail-items');
+  if (!rail || !items) return;
+  if (!recs.length) {
+    hideWeekendRail();
+    return;
+  }
+  items.innerHTML = recs.map(rec => `
+    <button type="button" class="weekend-rec" data-id="${esc(rec.cabin.id)}" data-from="${rec.from}" data-to="${rec.to}">
+      <span class="weekend-rec-name">${esc(rec.cabin.name)}</span><span class="weekend-rec-sep"> · </span><span class="weekend-rec-dates">${esc(formatWeekendNo(rec.from, rec.to))}</span>
+    </button>
+  `).join('');
+  rail.hidden = false;
+}
+
+async function applyWeekendRecommendation(cabinId, from, to, button) {
+  document.getElementById('f-date-from').value = from;
+  document.getElementById('f-date-to').value = to;
+  document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
+  if (button) button.classList.add('active');
+  await applyFilters();
+  focusCabin(cabinId);
+}
+
+function setupWeekendRail() {
+  const items = document.getElementById('weekend-rail-items');
+  if (!items) return;
+  items.addEventListener('click', e => {
+    const btn = e.target.closest('.weekend-rec');
+    if (!btn) return;
+    applyWeekendRecommendation(btn.dataset.id, btn.dataset.from, btn.dataset.to, btn);
+  });
+}
+
+async function loadWeekendRecommendations() {
+  try {
+    const starred = new Set(Object.keys(listsByCabinId));
+    if (!starred.size) {
+      hideWeekendRail();
+      return;
+    }
+
+    setWeekendRailLoading();
+
+    const weekends = nextWeekendRanges(WEEKEND_COUNT);
+    const hits = [];
+    for (let i = 0; i < weekends.length; i += WEEKEND_BATCH) {
+      const batch = weekends.slice(i, i + WEEKEND_BATCH);
+      const results = await Promise.all(batch.map(async weekend => {
+        try {
+          const ids = await fetchAvailableCabinIds(weekend.from, weekend.to);
+          return { from: weekend.from, to: weekend.to, ids };
+        } catch (err) {
+          console.warn(`Hoppet over helg ${weekend.from}–${weekend.to}:`, err);
+          return null;
+        }
+      }));
+      for (const result of results) {
+        if (result) hits.push(result);
+      }
+    }
+
+    const cabinsById = new Map(allCabins.map(c => [c.id, c]));
+    const soonest = new Map();
+    for (const weekend of hits) {
+      for (const id of weekend.ids) {
+        if (!starred.has(id) || soonest.has(id)) continue;
+        const cabin = cabinsById.get(id);
+        if (!cabin) continue;
+        soonest.set(id, { cabin, from: weekend.from, to: weekend.to });
+      }
+    }
+
+    const recs = [...soonest.values()].sort((a, b) => {
+      if (a.from !== b.from) return a.from < b.from ? -1 : 1;
+      return a.cabin.name.localeCompare(b.cabin.name, 'no');
+    });
+    renderWeekendRail(recs);
+  } catch (err) {
+    console.warn('Anbefalte helger feilet:', err);
+    hideWeekendRail();
+  }
 }
 
 // ──────────────── POPULATE FILTERS ────────────────
@@ -1054,12 +1302,14 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   if (rareSelect) rareSelect.value = '';
   document.getElementById('date-status').style.display = 'none';
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
   availableIds = null;
   applyFilters();
 });
 
 // ──────────────── INIT ────────────────
 setupMobileViewToggle();
+setupWeekendRail();
 loadData();
 </script>
 </body>
