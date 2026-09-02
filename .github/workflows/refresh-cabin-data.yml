@@ -1,13 +1,13 @@
-# Weekday refresh of public/cabins-data.json from iNatur.
+# Weekly Monday refresh of public/cabins-data.json from iNatur.
 # Fetches on a schedule, then opens a PR — never pushes the dump to main.
 #
-# Schedule is UTC. 07:00 UTC Mon–Fri is 08:00 Europe/Oslo in winter (CET)
+# Schedule is UTC. 07:00 UTC Mondays is 08:00 Europe/Oslo in winter (CET)
 # and 09:00 Europe/Oslo in summer (CEST).
 name: Refresh cabin data
 
 on:
   schedule:
-    - cron: '0 7 * * 1-5'
+    - cron: '0 7 * * 1'
   workflow_dispatch:
 
 permissions:
