@@ -1,0 +1,59 @@
+# Weekday refresh of public/cabins-data.json from iNatur.
+# Fetches on a schedule, then opens a PR — never pushes the dump to main.
+#
+# Schedule is UTC. 07:00 UTC Mon–Fri is 08:00 Europe/Oslo in winter (CET)
+# and 09:00 Europe/Oslo in summer (CEST).
+name: Refresh cabin data
+
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-cabin-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Fetch cabins and open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Snapshot previous dump
+        run: cp public/cabins-data.json /tmp/cabins-data.prev.json
+
+      - name: Fetch cabins from iNatur
+        run: npm run fetch-cabins
+
+      - name: Build PR body
+        id: summary
+        run: |
+          node scripts/cabin-refresh-summary.mjs \
+            --prev /tmp/cabins-data.prev.json \
+            --next public/cabins-data.json \
+            --out /tmp/cabin-refresh-pr-body.md
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: Refresh cabin data from iNatur
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          branch: refresh-cabin-data
+          delete-branch: true
+          title: Refresh cabin data from iNatur
+          body-path: /tmp/cabin-refresh-pr-body.md
+          add-paths: public/cabins-data.json
