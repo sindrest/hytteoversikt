@@ -134,6 +134,7 @@
     .cabin-tag.available { background: #e8f5e9; color: #2e7d32; }
     .cabin-tag.unavailable { background: #fde; color: #900; }
     .cabin-tag.listed { background: #fff8e1; color: #8a6d00; }
+    .cabin-tag.rare { background: #f3e5f5; color: #6a1b9a; }
 
     #date-status.loading::before {
       content: ''; display: inline-block; width: 10px; height: 10px;
@@ -176,6 +177,22 @@
       line-height: 1;
       color: #e6b422;
       text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0,0,0,.35);
+    }
+    .map-pin-rare-badge {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 3px);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      background: #6a1b9a;
+      color: #fff;
+      padding: 1px 5px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.25);
+      pointer-events: none;
     }
 
     .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
@@ -371,6 +388,13 @@
           <option value="available" selected>Bare ledige</option>
         </select>
       </div>
+      <div class="filter-row" id="rarity-filter-row" hidden>
+        <label>Sjelden ledig</label>
+        <select id="f-rare">
+          <option value="" selected>Alle hytter</option>
+          <option value="rare">Bare sjeldent ledige</option>
+        </select>
+      </div>
       <button id="btn-filter">Filtrer</button>
       <button id="btn-reset">Nullstill filter</button>
     </div>
@@ -419,9 +443,14 @@ map.addLayer(clusterGroup);
 let allCabins = [];
 let cabinLists = [];
 let listsByCabinId = {};
+let occupancySnapshots = [];
+let rarityByCabinId = {};
+let rarityReady = false;
 let markerMap = {};
 let availableIds = null;  // null = no date filter, Set = filtered IDs
 const MOBILE_BREAKPOINT = 900;
+const RARITY_MIN_SNAPSHOTS = 4;
+const RARITY_MIN_RATE = 0.5;
 
 const mobileViewSwitch = document.getElementById('mobile-view-switch');
 const mobileViewButtons = mobileViewSwitch ? [...mobileViewSwitch.querySelectorAll('.mobile-view-btn')] : [];
@@ -493,11 +522,47 @@ function listsForCabin(id) {
   return listsByCabinId[id] || [];
 }
 
+function indexOccupancy(history) {
+  occupancySnapshots = Array.isArray(history?.snapshots) ? history.snapshots : [];
+  rarityReady = occupancySnapshots.length >= RARITY_MIN_SNAPSHOTS;
+  rarityByCabinId = {};
+  const counts = {};
+  occupancySnapshots.forEach(snapshot => {
+    (snapshot.soldOutIds || []).forEach(id => {
+      counts[id] = (counts[id] || 0) + 1;
+    });
+  });
+  const n = occupancySnapshots.length;
+  Object.entries(counts).forEach(([id, soldOutCount]) => {
+    const rate = n ? soldOutCount / n : 0;
+    rarityByCabinId[id] = {
+      soldOutCount,
+      snapshotCount: n,
+      rate,
+      rare: rarityReady && rate >= RARITY_MIN_RATE,
+    };
+  });
+}
+
+function rarityForCabin(id) {
+  return rarityByCabinId[id] || {
+    soldOutCount: 0,
+    snapshotCount: occupancySnapshots.length,
+    rate: 0,
+    rare: false,
+  };
+}
+
+function isRareCabin(id) {
+  return rarityReady && rarityForCabin(id).rare;
+}
+
 async function loadData() {
   try {
-    const [res, listsRes] = await Promise.all([
+    const [res, listsRes, occupancyRes] = await Promise.all([
       fetch('cabins-data.json'),
       fetch('lists-data.json').catch(() => null),
+      fetch('occupancy-history.json').catch(() => null),
     ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -505,6 +570,9 @@ async function loadData() {
     if (listsRes && listsRes.ok) {
       const listsData = await listsRes.json();
       indexCabinLists(listsData.lists);
+    }
+    if (occupancyRes && occupancyRes.ok) {
+      indexOccupancy(await occupancyRes.json());
     }
     document.getElementById('cabin-count').textContent = `${allCabins.length} hytter`;
     populateFilters();
@@ -554,6 +622,18 @@ async function fetchAvailableCabinIds(fromDate, toDate) {
 }
 
 // ──────────────── POPULATE FILTERS ────────────────
+function populateRarityFilter() {
+  const row = document.getElementById('rarity-filter-row');
+  const sel = document.getElementById('f-rare');
+  if (!row || !sel) return;
+  if (!rarityReady) {
+    sel.value = '';
+    row.hidden = true;
+    return;
+  }
+  row.hidden = false;
+}
+
 function populateListFilter() {
   const row = document.getElementById('list-filter-row');
   const sel = document.getElementById('f-list');
@@ -572,6 +652,7 @@ function populateListFilter() {
 
 function populateFilters() {
   populateListFilter();
+  populateRarityFilter();
   const counties = [...new Set(allCabins.flatMap(c => c.counties))].sort();
   const sel = document.getElementById('f-county');
   sel.innerHTML = '<option value="">Alle fylker</option>' + counties.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -640,6 +721,7 @@ async function applyFilters() {
   const county = document.getElementById('f-county').value;
   const municipality = document.getElementById('f-municipality').value;
   const availability = document.getElementById('f-available').value;
+  const rareOnly = rarityReady && document.getElementById('f-rare')?.value === 'rare';
   const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
   const selectedList = listFilter && listFilter !== 'any'
     ? cabinLists.find(list => list.url === listFilter)
@@ -659,6 +741,7 @@ async function applyFilters() {
     if (county && !c.counties.includes(county)) return false;
     if (municipality && !c.municipalities.includes(municipality)) return false;
     if (availability === 'available' && c.soldOut) return false;
+    if (rareOnly && !isRareCabin(c.id)) return false;
     if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
     return true;
   });
@@ -679,9 +762,11 @@ function updateList(cabins) {
   const extra = cabins.length > 200 ? `<div class="no-results">Viser ${shown.length} av ${cabins.length}. Bruk filter for å begrense.</div>` : '';
   el.innerHTML = shown.map(c => {
     const onLists = listsForCabin(c.id);
+    const rare = isRareCabin(c.id);
     const listBadge = onLists.length
       ? `<span class="cabin-tag listed">${onLists.length === 1 ? 'På liste' : `På ${onLists.length} lister`}</span>`
       : '';
+    const rareBadge = rare ? '<span class="cabin-tag rare">Sjelden ledig</span>' : '';
     return `
     <div class="cabin-card${c.soldOut ? ' sold-out' : ''}" data-id="${c.id}" onclick="focusCabin('${c.id}')">
       <h3>${esc(c.name)}</h3>
@@ -690,6 +775,7 @@ function updateList(cabins) {
         ${c.beds ? `<span class="cabin-tag beds">${c.beds} senger</span>` : ''}
         ${c.priceFrom ? `<span class="cabin-tag price">fra ${c.priceFrom} kr</span>` : ''}
         ${c.soldOut ? `<span class="cabin-tag sold">Opptatt</span>` : ''}
+        ${rareBadge}
         ${listBadge}
       </div>
     </div>
@@ -708,11 +794,13 @@ function updateMap(cabins) {
     if (!c.lat || !c.lng) return;
 
     const onLists = listsForCabin(c.id);
+    const rare = isRareCabin(c.id);
+    const stats = rarityForCabin(c.id);
     const icon = L.divIcon({
       className: '',
-      html: `<div class="map-pin${onLists.length ? ' listed' : ''}" style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}">${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}</div>`,
-      iconSize: onLists.length ? [18, 18] : [12, 12],
-      iconAnchor: onLists.length ? [9, 9] : [6, 6],
+      html: `<div class="map-pin${onLists.length ? ' listed' : ''}${rare ? ' rare' : ''}" style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}">${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
+      iconSize: (onLists.length || rare) ? [18, 18] : [12, 12],
+      iconAnchor: (onLists.length || rare) ? [9, 9] : [6, 6],
     });
 
     const amenityHtml = (c.amenities || []).slice(0, 8).map(a =>
@@ -730,6 +818,7 @@ function updateMap(cabins) {
         ${c.priceFrom ? `<div class="popup-meta">Fra ${c.priceFrom} kr/natt</div>` : ''}
         <div class="popup-meta">${esc(c.municipalities.join(', '))} — ${esc(c.counties.join(', '))}</div>
         ${c.provider ? `<div class="popup-meta" style="color:#888;font-size:.75rem">Tilbyder: ${esc(c.provider)}</div>` : ''}
+        ${rare ? `<div class="popup-meta">Opptatt i ${stats.soldOutCount} av ${stats.snapshotCount} ukentlige sjekk</div>` : ''}
         ${onLists.length ? `<div class="popup-lists"><div class="popup-lists-label">På iNatur-lister</div><ul>${onLists.map(list => `<li>${esc(list.title)}</li>`).join('')}</ul></div>` : ''}
         ${amenityHtml ? `<div class="popup-amenities">${amenityHtml}</div>` : ''}
         <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
@@ -778,6 +867,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('f-available').value = 'available';
   const listSelect = document.getElementById('f-list');
   if (listSelect) listSelect.value = '';
+  const rareSelect = document.getElementById('f-rare');
+  if (rareSelect) rareSelect.value = '';
   document.getElementById('date-status').style.display = 'none';
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   availableIds = null;

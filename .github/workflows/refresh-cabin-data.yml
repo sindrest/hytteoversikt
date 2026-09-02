@@ -1,4 +1,5 @@
-# Weekly Monday refresh of public/cabins-data.json from iNatur.
+# Weekly Monday refresh of public/cabins-data.json from iNatur,
+# plus one occupancy snapshot in public/occupancy-history.json.
 # Fetches on a schedule, then opens a PR — never pushes the dump to main.
 #
 # Schedule is UTC. 07:00 UTC Mondays is 08:00 Europe/Oslo in winter (CET)
@@ -38,12 +39,16 @@ jobs:
       - name: Fetch cabins from iNatur
         run: npm run fetch-cabins
 
+      - name: Append occupancy snapshot
+        run: npm run append-occupancy
+
       - name: Build PR body
         id: summary
         run: |
           node scripts/cabin-refresh-summary.mjs \
             --prev /tmp/cabins-data.prev.json \
             --next public/cabins-data.json \
+            --occupancy public/occupancy-history.json \
             --out /tmp/cabin-refresh-pr-body.md
 
       - name: Create pull request
@@ -56,4 +61,6 @@ jobs:
           delete-branch: true
           title: Refresh cabin data from iNatur
           body-path: /tmp/cabin-refresh-pr-body.md
-          add-paths: public/cabins-data.json
+          add-paths: |
+            public/cabins-data.json
+            public/occupancy-history.json

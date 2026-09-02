@@ -5,6 +5,7 @@
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public",
     "fetch-cabins": "node fetch-cabins.mjs",
+    "append-occupancy": "node scripts/append-occupancy-history.mjs",
     "fetch-lists": "node fetch-lists.mjs"
   },
   "devDependencies": {
