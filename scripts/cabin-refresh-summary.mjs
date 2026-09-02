@@ -36,16 +36,32 @@ function loadDump(path) {
   return data;
 }
 
+function coordSourceOf(cabin) {
+  if (cabin?.coordSource) return cabin.coordSource;
+  return cabin?.lat && cabin?.lng ? 'exact' : 'none';
+}
+
+function coordSourceCounts(data) {
+  const counts = { exact: 0, municipality: 0, county: 0, none: 0 };
+  for (const cabin of data.cabins || []) {
+    const source = coordSourceOf(cabin);
+    if (Object.prototype.hasOwnProperty.call(counts, source)) {
+      counts[source] += 1;
+    }
+  }
+  return counts;
+}
+
 function stats(data) {
   const total = Number.isFinite(data.count) ? data.count : data.cabins.length;
-  const withCoords = Number.isFinite(data.countWithCoords)
-    ? data.countWithCoords
-    : data.cabins.filter((c) => c.lat && c.lng).length;
+  const sources = coordSourceCounts(data);
+  const withCoords = Number.isFinite(data.countWithCoords) ? data.countWithCoords : sources.exact;
   return {
     fetchedAt: data.fetchedAt || 'unknown',
     total,
     withCoords,
-    missing: total - withCoords,
+    missing: sources.municipality + sources.county + sources.none,
+    sources,
   };
 }
 
@@ -61,8 +77,8 @@ function isMaterialChange(prev, next) {
   return JSON.stringify(stripFetchedAt(prev)) !== JSON.stringify(stripFetchedAt(next));
 }
 
-function missingCabins(data) {
-  return (data.cabins || []).filter((c) => !c.lat || !c.lng);
+function estimatedCabins(data) {
+  return (data.cabins || []).filter((c) => coordSourceOf(c) !== 'exact');
 }
 
 function occupancyStats(history) {
@@ -78,19 +94,19 @@ function occupancyStats(history) {
 function buildBody(prev, next, occupancy) {
   const a = stats(prev);
   const b = stats(next);
-  const missing = missingCabins(next);
+  const estimated = estimatedCabins(next);
   const occ = occupancyStats(occupancy);
 
   let body = `Refresh the static iNatur cabin dump in \`public/cabins-data.json\` and append one occupancy snapshot to \`public/occupancy-history.json\`. Opened automatically by the weekday refresh workflow (no push to \`main\`).
 
 ## Before / after
 
-| | fetchedAt | total | with coords | missing coords |
-|---|---|---|---|---|
-| **previous** | ${a.fetchedAt} | ${a.total} | ${a.withCoords} | ${a.missing} |
-| **this refresh** | ${b.fetchedAt} | ${b.total} | ${b.withCoords} | ${b.missing} |
+| | fetchedAt | total | exact | municipality | county | none |
+|---|---|---|---|---|---|---|
+| **previous** | ${a.fetchedAt} | ${a.total} | ${a.sources.exact} | ${a.sources.municipality} | ${a.sources.county} | ${a.sources.none} |
+| **this refresh** | ${b.fetchedAt} | ${b.total} | ${b.sources.exact} | ${b.sources.municipality} | ${b.sources.county} | ${b.sources.none} |
 
-Net change: **${signed(b.total - a.total)} cabins**, ${signed(b.withCoords - a.withCoords)} with coordinates, **${signed(b.missing - a.missing)} still missing coordinates**.
+Net change: **${signed(b.total - a.total)} cabins**, ${signed(b.withCoords - a.withCoords)} exact iNatur/ArcGIS coordinates.
 
 ## Occupancy history
 
@@ -100,19 +116,21 @@ Net change: **${signed(b.total - a.total)} cabins**, ${signed(b.withCoords - a.w
 
 One snapshot per UTC date from the new dump's \`soldOut\` (\`utsolgt\`). Same-date reruns are skipped. Oldest weeks are dropped after 52.
 
-## Missing coordinates
+## Coordinate sources
 
-**${b.missing} cabins still have no coordinates** after this refresh (${a.missing} → ${b.missing}). Those listings are in the dump but cannot be placed on the map until iNatur/ArcGIS provides geometry.
+Pins without iNatur/ArcGIS geometry are municipality (then county) centroids of already-mapped cabins. No geocoder. \`countWithCoords\` is exact only.
+
+**${b.sources.municipality} municipality**, **${b.sources.county} county**, **${b.sources.none} none** after this refresh.
 `;
 
-  if (missing.length) {
-    const rows = missing
-      .map((c) => `- ${c.name || '(unnamed)'} (\`${c.id}\`)`)
+  if (estimated.length) {
+    const rows = estimated
+      .map((c) => `- ${c.name || '(unnamed)'} (\`${c.id}\`) — ${coordSourceOf(c)}`)
       .join('\n');
-    body += `\n<details>\n<summary>${missing.length} cabins missing coordinates</summary>\n\n${rows}\n</details>\n`;
+    body += `\n<details>\n<summary>${estimated.length} cabins without exact coordinates</summary>\n\n${rows}\n</details>\n`;
   }
 
-  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay) and \`npm run append-occupancy\`. The PR includes \`public/cabins-data.json\` and \`public/occupancy-history.json\`.\n`;
+  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay, plus municipality/county centroid estimates) and \`npm run append-occupancy\`. The PR includes \`public/cabins-data.json\` and \`public/occupancy-history.json\`.\n`;
   return body;
 }
 
@@ -159,8 +177,8 @@ function main() {
   }
 
   console.log(
-    `previous=${prevStats.total} (${prevStats.withCoords} coords, ${prevStats.missing} missing) → ` +
-      `new=${nextStats.total} (${nextStats.withCoords} coords, ${nextStats.missing} missing)`
+    `previous=${prevStats.total} (exact ${prevStats.sources.exact} / muni ${prevStats.sources.municipality} / county ${prevStats.sources.county} / none ${prevStats.sources.none}) → ` +
+      `new=${nextStats.total} (exact ${nextStats.sources.exact} / muni ${nextStats.sources.municipality} / county ${nextStats.sources.county} / none ${nextStats.sources.none})`
   );
 
   writeGithubOutput('material_change', material ? 'true' : 'false');
