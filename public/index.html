@@ -189,24 +189,47 @@
     }
     .weekend-rec {
       flex: 0 0 auto;
+      width: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       border: 1px solid #d5e3d8;
       background: #fff;
       color: #1a1a1a;
       border-radius: 10px;
-      padding: 8px 12px;
+      padding: 0;
+      overflow: hidden;
       cursor: pointer;
       font: inherit;
-      font-size: .8rem;
+      font-size: .78rem;
       line-height: 1.3;
-      white-space: nowrap;
+      text-align: left;
       box-shadow: 0 1px 3px rgba(0,0,0,.08);
     }
     .weekend-rec:hover, .weekend-rec.active {
       border-color: #2c6e49;
       box-shadow: 0 0 0 2px rgba(44,110,73,.15);
     }
-    .weekend-rec-name { font-weight: 600; }
-    .weekend-rec-sep { color: #888; }
+    .weekend-rec-img {
+      display: block;
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      border-radius: 9px 9px 0 0;
+    }
+    .weekend-rec-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 6px 8px 8px;
+      min-width: 0;
+    }
+    .weekend-rec-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .weekend-rec-dates { color: #2c6e49; font-weight: 600; }
     .weekend-rail-loading {
       display: flex;
@@ -448,10 +471,7 @@
       .leaflet-control-attribution { font-size: 10px; }
 
       .weekend-rail { padding: 8px 10px 10px; left: 8px; right: 8px; bottom: 8px; }
-      .weekend-rec {
-        padding: 10px 12px;
-        font-size: .82rem;
-      }
+      .weekend-rec { width: 148px; }
     }
   </style>
 </head>
@@ -903,11 +923,19 @@ function renderWeekendRail(recs) {
     return;
   }
   const activeId = document.querySelector('.weekend-rec.active')?.dataset.id;
-  items.innerHTML = recs.map(rec => `
+  items.innerHTML = recs.map(rec => {
+    const imgHtml = rec.cabin.image
+      ? `<img class="weekend-rec-img" src="${rec.cabin.image}/w=300,h=180,fit=cover,format=auto" loading="lazy" onerror="this.style.display='none'" />`
+      : '';
+    return `
     <button type="button" class="weekend-rec${activeId === rec.cabin.id ? ' active' : ''}" data-id="${esc(rec.cabin.id)}" data-from="${rec.from}" data-to="${rec.to}">
-      <span class="weekend-rec-name">${esc(rec.cabin.name)}</span><span class="weekend-rec-sep"> · </span><span class="weekend-rec-dates">${esc(formatWeekendNo(rec.from, rec.to))}</span>
-    </button>
-  `).join('');
+      ${imgHtml}
+      <span class="weekend-rec-meta">
+        <span class="weekend-rec-name">${esc(rec.cabin.name)}</span>
+        <span class="weekend-rec-dates">${esc(formatWeekendNo(rec.from, rec.to))}</span>
+      </span>
+    </button>`;
+  }).join('');
   showWeekendRail();
 }
 
