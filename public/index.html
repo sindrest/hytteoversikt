@@ -272,6 +272,9 @@
     .marker-cluster-large { background-color: rgba(44,110,73,.5); }
     .marker-cluster-large div { background-color: rgba(44,110,73,.8); color: white; }
 
+    /* Listed gold stars sit above numbered clusters at every zoom. */
+    .leaflet-listed-pane { z-index: 620; }
+
     @media (max-width: 1024px) {
       #sidebar { width: 320px; }
     }
@@ -505,6 +508,16 @@ const clusterGroup = L.markerClusterGroup({
   disableClusteringAtZoom: 13,
 });
 map.addLayer(clusterGroup);
+
+// Listed cabins stay out of MarkerCluster so ★ pins remain visible at country zoom.
+map.createPane('listedPane');
+map.getPane('listedPane').style.zIndex = 620;
+const listedLayer = L.layerGroup();
+map.addLayer(listedLayer);
+
+const LISTED_SPIDERFY_PX = 14;
+const LISTED_SPIDERFY_RADIUS = 28;
+let listedSpiderfy = null;
 
 let allCabins = [];
 let cabinLists = [];
@@ -879,31 +892,74 @@ function updateList(cabins) {
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 // ──────────────── MAP ────────────────
+function listedHomeLatLng(marker) {
+  return marker._homeLatLng || marker.getLatLng();
+}
+
+function unspiderfyListed() {
+  if (!listedSpiderfy) return;
+  listedSpiderfy.markers.forEach(({ marker, home }) => marker.setLatLng(home));
+  listedSpiderfy = null;
+}
+
+function spiderfyListedIfNeeded(clicked) {
+  const clickedHome = listedHomeLatLng(clicked);
+  const originPt = map.latLngToLayerPoint(clickedHome);
+  const members = [];
+  listedLayer.eachLayer(m => {
+    const pt = map.latLngToLayerPoint(listedHomeLatLng(m));
+    if (originPt.distanceTo(pt) <= LISTED_SPIDERFY_PX) members.push(m);
+  });
+  if (members.length < 2) {
+    unspiderfyListed();
+    return;
+  }
+  const sameGroup = listedSpiderfy
+    && listedSpiderfy.markers.length === members.length
+    && members.every(m => listedSpiderfy.markers.some(entry => entry.marker === m));
+  if (sameGroup) return;
+
+  unspiderfyListed();
+  listedSpiderfy = {
+    markers: members.map(marker => ({ marker, home: listedHomeLatLng(marker) })),
+  };
+  members.forEach((m, i) => {
+    const angle = (2 * Math.PI * i) / members.length - Math.PI / 2;
+    m.setLatLng(map.layerPointToLatLng(L.point(
+      originPt.x + Math.cos(angle) * LISTED_SPIDERFY_RADIUS,
+      originPt.y + Math.sin(angle) * LISTED_SPIDERFY_RADIUS
+    )));
+  });
+}
+
 function updateMap(cabins) {
+  unspiderfyListed();
   clusterGroup.clearLayers();
+  listedLayer.clearLayers();
   markerMap = {};
 
   cabins.forEach(c => {
     if (!c.lat || !c.lng) return;
 
     const onLists = listsForCabin(c.id);
+    const listed = onLists.length > 0;
     const rare = isRareCabin(c.id);
     const stats = rarityForCabin(c.id);
     const approx = isApproxCabin(c);
     const pinClasses = [
       'map-pin',
-      onLists.length ? 'listed' : '',
+      listed ? 'listed' : '',
       rare ? 'rare' : '',
       approx ? 'approx' : '',
       approx && c.soldOut ? 'sold' : '',
     ].filter(Boolean).join(' ');
     const pinStyle = approx ? '' : ` style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}"`;
     const approxMark = approx ? '<span class="map-pin-approx-mark">ca.</span>' : '';
-    const iconSize = approx ? [22, 28] : ((onLists.length || rare) ? [18, 18] : [12, 12]);
+    const iconSize = approx ? [22, 28] : ((listed || rare) ? [18, 18] : [12, 12]);
     const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
     const icon = L.divIcon({
       className: approx ? 'cabin-div-icon' : '',
-      html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
+      html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${listed ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
       iconSize,
       iconAnchor,
     });
@@ -916,8 +972,11 @@ function updateMap(cabins) {
     const approxLead = approxPopupLead(c);
     const approxHtml = approxLead ? `<div class="popup-approx-note">${esc(approxLead)}</div>` : '';
 
-    const m = L.marker([c.lat, c.lng], { icon })
-      .bindPopup(`
+    const m = L.marker([c.lat, c.lng], {
+      icon,
+      pane: listed ? 'listedPane' : 'markerPane',
+      riseOnHover: listed,
+    }).bindPopup(`
         ${approxHtml}
         ${imgHtml}
         <div class="popup-title">${esc(c.name)}</div>
@@ -927,15 +986,23 @@ function updateMap(cabins) {
         <div class="popup-meta">${esc(c.municipalities.join(', '))} — ${esc(c.counties.join(', '))}</div>
         ${c.provider ? `<div class="popup-meta" style="color:#888;font-size:.75rem">Tilbyder: ${esc(c.provider)}</div>` : ''}
         ${rare ? `<div class="popup-meta">Opptatt i ${stats.soldOutCount} av ${stats.snapshotCount} ukentlige sjekk</div>` : ''}
-        ${onLists.length ? `<div class="popup-lists"><div class="popup-lists-label">På iNatur-lister</div><ul>${onLists.map(list => `<li>${esc(list.title)}</li>`).join('')}</ul></div>` : ''}
+        ${listed ? `<div class="popup-lists"><div class="popup-lists-label">På iNatur-lister</div><ul>${onLists.map(list => `<li>${esc(list.title)}</li>`).join('')}</ul></div>` : ''}
         ${amenityHtml ? `<div class="popup-amenities">${amenityHtml}</div>` : ''}
         <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
       `, { maxWidth: 300 });
 
-    clusterGroup.addLayer(m);
+    if (listed) {
+      m._homeLatLng = L.latLng(c.lat, c.lng);
+      m.on('click', () => spiderfyListedIfNeeded(m));
+      listedLayer.addLayer(m);
+    } else {
+      clusterGroup.addLayer(m);
+    }
     markerMap[c.id] = m;
   });
 }
+
+map.on('zoomstart', unspiderfyListed);
 
 function focusCabin(id) {
   document.querySelectorAll('.cabin-card').forEach(el => el.classList.remove('active'));
@@ -945,6 +1012,12 @@ function focusCabin(id) {
   const m = markerMap[id];
   if (m) {
     const openMarker = () => {
+      if (listedLayer.hasLayer(m)) {
+        spiderfyListedIfNeeded(m);
+        map.panTo(m.getLatLng());
+        m.openPopup();
+        return;
+      }
       clusterGroup.zoomToShowLayer(m, () => {
         m.openPopup();
       });
