@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   applyCoordEstimates,
   distanceKm,
@@ -157,6 +158,23 @@ function cabin(partial) {
     county: 1,
     none: 1,
   });
+}
+
+{
+  const dump = JSON.parse(readFileSync(new URL('../public/cabins-data.json', import.meta.url), 'utf8'));
+  const counts = summarizeCoordSources(dump.cabins);
+  assert.equal(dump.countWithCoords, counts.exact);
+  assert.equal(dump.cabins.length, counts.exact + counts.municipality + counts.county + counts.none);
+  const estimated = dump.cabins.filter((c) => c.coordSource !== 'exact');
+  assert.ok(estimated.every((c) => !c.stedsnavn));
+  const recomputed = applyCoordEstimates(
+    dump.cabins.map((c) =>
+      c.coordSource === 'exact'
+        ? { ...c, coordSource: undefined }
+        : { ...c, lat: null, lng: null, coordSource: undefined }
+    )
+  );
+  assert.deepEqual(summarizeCoordSources(recomputed), counts);
 }
 
 console.log('estimate-cabin-coords tests passed');

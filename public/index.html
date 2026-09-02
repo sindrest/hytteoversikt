@@ -210,11 +210,16 @@
       box-shadow: 0 1px 3px rgba(0,0,0,.25);
       pointer-events: none;
     }
+    .cabin-div-icon {
+      background: transparent !important;
+      border: none !important;
+      overflow: visible !important;
+    }
     .map-pin.approx {
       width: 16px;
       height: 16px;
       border-radius: 2px;
-      background: rgba(255,255,255,.82) !important;
+      background: rgba(238,241,238,.9) !important;
       border: 2px dashed #5d7263;
       box-shadow: 0 1px 3px rgba(0,0,0,.22);
     }
@@ -228,17 +233,26 @@
     .map-pin-approx-mark {
       position: absolute;
       left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 7px;
+      top: calc(100% + 1px);
+      transform: translateX(-50%);
+      font-size: 9px;
       font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1;
+      letter-spacing: 0;
+      line-height: 1.2;
       color: #3f4f44;
+      background: #eef1ee;
+      border: 1px dashed #5d7263;
+      border-radius: 3px;
+      padding: 0 3px;
       pointer-events: none;
       text-transform: lowercase;
+      white-space: nowrap;
     }
-    .map-pin.approx.sold .map-pin-approx-mark { color: #7a3030; }
+    .map-pin.approx.sold .map-pin-approx-mark {
+      color: #7a3030;
+      background: #fff4f4;
+      border-color: #a05a5a;
+    }
 
     .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
 
@@ -885,10 +899,10 @@ function updateMap(cabins) {
     ].filter(Boolean).join(' ');
     const pinStyle = approx ? '' : ` style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}"`;
     const approxMark = approx ? '<span class="map-pin-approx-mark">ca.</span>' : '';
-    const iconSize = approx ? [18, 18] : ((onLists.length || rare) ? [18, 18] : [12, 12]);
-    const iconAnchor = [iconSize[0] / 2, iconSize[1] / 2];
+    const iconSize = approx ? [22, 28] : ((onLists.length || rare) ? [18, 18] : [12, 12]);
+    const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
     const icon = L.divIcon({
-      className: '',
+      className: approx ? 'cabin-div-icon' : '',
       html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
       iconSize,
       iconAnchor,
