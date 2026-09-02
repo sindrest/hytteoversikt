@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 // Fetches all cabin data from iNatur and saves to public/cabins-data.json
 // Usage: npm run fetch-cabins
+//
+// Coordinates come only from the ArcGIS overlay. Cabins without geometry get
+// a municipality (then county) centroid estimate — never geocoded names,
+// addresses, providers, or stedsnavn.
+
+import { applyCoordEstimates, summarizeCoordSources } from './scripts/estimate-cabin-coords.mjs';
 
 const SEARCH_URL = 'https://www.inatur.no/internal/search';
 const GEO_URL = 'https://inatur.geodataonline.no/arcgis/rest/services/inatur/Open-Inatur/MapServer/0/query';
@@ -100,19 +106,20 @@ async function main() {
     fetchAllCabins(),
   ]);
 
-  const cabins = mergeCabins(searchResults, coordMap);
-  const withCoords = cabins.filter(c => c.lat && c.lng);
-  const withoutCoords = cabins.filter(c => !c.lat || !c.lng);
+  const cabins = applyCoordEstimates(mergeCabins(searchResults, coordMap));
+  const counts = summarizeCoordSources(cabins);
 
   console.log(`\nResultat:`);
   console.log(`  ${cabins.length} hytter totalt`);
-  console.log(`  ${withCoords.length} med koordinater`);
-  console.log(`  ${withoutCoords.length} uten koordinater`);
+  console.log(`  ${counts.exact} nøyaktige koordinater (iNatur/ArcGIS)`);
+  console.log(`  ${counts.municipality} estimert fra kommune`);
+  console.log(`  ${counts.county} estimert fra fylke`);
+  console.log(`  ${counts.none} uten kartpunkt`);
 
   const data = {
     fetchedAt: new Date().toISOString(),
     count: cabins.length,
-    countWithCoords: withCoords.length,
+    countWithCoords: counts.exact,
     cabins,
   };
 

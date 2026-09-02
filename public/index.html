@@ -136,6 +136,11 @@
     .cabin-tag.unavailable { background: #fde; color: #900; }
     .cabin-tag.listed { background: #fff8e1; color: #8a6d00; }
     .cabin-tag.rare { background: #f3e5f5; color: #6a1b9a; }
+    .cabin-tag.approx {
+      background: #eef1ee;
+      color: #3f4f44;
+      border: 1px dashed #7a8b7f;
+    }
 
     #date-status.loading::before {
       content: ''; display: inline-block; width: 10px; height: 10px;
@@ -154,6 +159,16 @@
     .popup-amenity { font-size: .65rem; padding: 1px 6px; border-radius: 10px; background: #f0f4f0; color: #555; }
     .popup-link { display: inline-block; margin-top: 6px; padding: 5px 14px; background: #2c6e49; color: white; border-radius: 5px; text-decoration: none; font-size: .8rem; }
     .popup-link:hover { background: #235c3c; }
+    .popup-approx-note {
+      font-size: .75rem;
+      font-weight: 700;
+      color: #3f4f44;
+      background: #eef1ee;
+      border: 1px dashed #7a8b7f;
+      padding: 5px 8px;
+      border-radius: 5px;
+      margin-bottom: 8px;
+    }
     .popup-lists { margin: 8px 0 4px; padding: 6px 8px; background: #fff8e1; border-radius: 6px; }
     .popup-lists-label { font-size: .72rem; font-weight: 700; color: #8a6d00; margin-bottom: 3px; }
     .popup-lists ul { margin: 0; padding-left: 16px; }
@@ -194,6 +209,49 @@
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,.25);
       pointer-events: none;
+    }
+    .cabin-div-icon {
+      background: transparent !important;
+      border: none !important;
+      overflow: visible !important;
+    }
+    .map-pin.approx {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+      background: rgba(238,241,238,.9) !important;
+      border: 2px dashed #5d7263;
+      box-shadow: 0 1px 3px rgba(0,0,0,.22);
+    }
+    .map-pin.approx.sold {
+      border-color: #a05a5a;
+      background: rgba(255,244,244,.88) !important;
+    }
+    .map-pin.approx.listed {
+      box-shadow: 0 0 0 2px #e6b422, 0 1px 3px rgba(0,0,0,.22);
+    }
+    .map-pin-approx-mark {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 1px);
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0;
+      line-height: 1.2;
+      color: #3f4f44;
+      background: #eef1ee;
+      border: 1px dashed #5d7263;
+      border-radius: 3px;
+      padding: 0 3px;
+      pointer-events: none;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+    .map-pin.approx.sold .map-pin-approx-mark {
+      color: #7a3030;
+      background: #fff4f4;
+      border-color: #a05a5a;
     }
 
     .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
@@ -389,6 +447,13 @@
           <option value="available" selected>Bare ledige</option>
         </select>
       </div>
+      <div class="filter-row">
+        <label>Kartpunkt</label>
+        <select id="f-coords">
+          <option value="" selected>Alle posisjoner</option>
+          <option value="exact">Kun nøyaktige posisjoner</option>
+        </select>
+      </div>
       <div class="filter-row" id="rarity-filter-row" hidden>
         <label>Sjelden ledig</label>
         <select id="f-rare">
@@ -558,6 +623,27 @@ function isRareCabin(id) {
   return rarityReady && rarityForCabin(id).rare;
 }
 
+function coordSourceOf(cabin) {
+  if (cabin?.coordSource) return cabin.coordSource;
+  return cabin?.lat && cabin?.lng ? 'exact' : 'none';
+}
+
+function isExactCabin(cabin) {
+  return coordSourceOf(cabin) === 'exact';
+}
+
+function isApproxCabin(cabin) {
+  const source = coordSourceOf(cabin);
+  return source === 'municipality' || source === 'county';
+}
+
+function approxPopupLead(cabin) {
+  const source = coordSourceOf(cabin);
+  if (source === 'county') return 'Omtrentlig posisjon (fylke)';
+  if (source === 'municipality') return 'Omtrentlig posisjon (kommune)';
+  return '';
+}
+
 async function loadData() {
   try {
     const [res, listsRes, occupancyRes] = await Promise.all([
@@ -567,7 +653,7 @@ async function loadData() {
     ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    allCabins = data.cabins.filter(c => c.lat && c.lng);
+    allCabins = Array.isArray(data.cabins) ? data.cabins : [];
     if (listsRes && listsRes.ok) {
       const listsData = await listsRes.json();
       indexCabinLists(listsData.lists);
@@ -722,6 +808,7 @@ async function applyFilters() {
   const county = document.getElementById('f-county').value;
   const municipality = document.getElementById('f-municipality').value;
   const availability = document.getElementById('f-available').value;
+  const exactOnly = document.getElementById('f-coords')?.value === 'exact';
   const rareOnly = rarityReady && document.getElementById('f-rare')?.value === 'rare';
   const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
   const selectedList = listFilter && listFilter !== 'any'
@@ -742,6 +829,7 @@ async function applyFilters() {
     if (county && !c.counties.includes(county)) return false;
     if (municipality && !c.municipalities.includes(municipality)) return false;
     if (availability === 'available' && c.soldOut) return false;
+    if (exactOnly && !isExactCabin(c)) return false;
     if (rareOnly && !isRareCabin(c.id)) return false;
     if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
     return true;
@@ -768,6 +856,9 @@ function updateList(cabins) {
       ? `<span class="cabin-tag listed">${onLists.length === 1 ? 'På liste' : `På ${onLists.length} lister`}</span>`
       : '';
     const rareBadge = rare ? '<span class="cabin-tag rare">Sjelden ledig</span>' : '';
+    const approxBadge = !isExactCabin(c)
+      ? '<span class="cabin-tag approx">Uten nøyaktig kartpunkt</span>'
+      : '';
     return `
     <div class="cabin-card${c.soldOut ? ' sold-out' : ''}" data-id="${c.id}" onclick="focusCabin('${c.id}')">
       <h3>${esc(c.name)}</h3>
@@ -776,6 +867,7 @@ function updateList(cabins) {
         ${c.beds ? `<span class="cabin-tag beds">${c.beds} senger</span>` : ''}
         ${c.priceFrom ? `<span class="cabin-tag price">fra ${c.priceFrom} kr</span>` : ''}
         ${c.soldOut ? `<span class="cabin-tag sold">Opptatt</span>` : ''}
+        ${approxBadge}
         ${rareBadge}
         ${listBadge}
       </div>
@@ -797,11 +889,23 @@ function updateMap(cabins) {
     const onLists = listsForCabin(c.id);
     const rare = isRareCabin(c.id);
     const stats = rarityForCabin(c.id);
+    const approx = isApproxCabin(c);
+    const pinClasses = [
+      'map-pin',
+      onLists.length ? 'listed' : '',
+      rare ? 'rare' : '',
+      approx ? 'approx' : '',
+      approx && c.soldOut ? 'sold' : '',
+    ].filter(Boolean).join(' ');
+    const pinStyle = approx ? '' : ` style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}"`;
+    const approxMark = approx ? '<span class="map-pin-approx-mark">ca.</span>' : '';
+    const iconSize = approx ? [22, 28] : ((onLists.length || rare) ? [18, 18] : [12, 12]);
+    const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
     const icon = L.divIcon({
-      className: '',
-      html: `<div class="map-pin${onLists.length ? ' listed' : ''}${rare ? ' rare' : ''}" style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}">${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
-      iconSize: (onLists.length || rare) ? [18, 18] : [12, 12],
-      iconAnchor: (onLists.length || rare) ? [9, 9] : [6, 6],
+      className: approx ? 'cabin-div-icon' : '',
+      html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
+      iconSize,
+      iconAnchor,
     });
 
     const amenityHtml = (c.amenities || []).slice(0, 8).map(a =>
@@ -809,9 +913,12 @@ function updateMap(cabins) {
     ).join('');
 
     const imgHtml = c.image ? `<img class="popup-img" src="${c.image}/w=300,h=180,fit=cover,format=auto" onerror="this.style.display='none'" />` : '';
+    const approxLead = approxPopupLead(c);
+    const approxHtml = approxLead ? `<div class="popup-approx-note">${esc(approxLead)}</div>` : '';
 
     const m = L.marker([c.lat, c.lng], { icon })
       .bindPopup(`
+        ${approxHtml}
         ${imgHtml}
         <div class="popup-title">${esc(c.name)}</div>
         ${c.description ? `<div class="popup-desc">${esc(c.description)}</div>` : ''}
@@ -866,6 +973,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('f-county').value = '';
   document.getElementById('f-municipality').innerHTML = '<option value="">Alle kommuner</option>';
   document.getElementById('f-available').value = 'available';
+  const coordsSelect = document.getElementById('f-coords');
+  if (coordsSelect) coordsSelect.value = '';
   const listSelect = document.getElementById('f-list');
   if (listSelect) listSelect.value = '';
   const rareSelect = document.getElementById('f-rare');
