@@ -155,24 +155,30 @@
       animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle;
     }
 
-    #map { position: absolute; inset: 0; }
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
 
     .weekend-rail {
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 640;
-      padding: 10px 12px 12px;
-      background: linear-gradient(180deg, rgba(240,244,240,0) 0%, rgba(240,244,240,.92) 28%, rgba(240,244,240,.96) 100%);
-      pointer-events: none;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 1100;
+      padding: 10px 12px 8px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid #d5e3d8;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.16);
     }
+    .weekend-rail.is-hidden { display: none !important; }
     .weekend-rail-head {
       font-size: .72rem;
       font-weight: 700;
       color: #3f4f44;
       margin-bottom: 6px;
-      pointer-events: none;
     }
     .weekend-rail-items {
       display: flex;
@@ -180,7 +186,6 @@
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       padding: 2px 2px 6px;
-      pointer-events: auto;
     }
     .weekend-rec {
       flex: 0 0 auto;
@@ -210,7 +215,6 @@
       font-size: .78rem;
       color: #555;
       padding: 6px 2px 8px;
-      pointer-events: none;
     }
     .weekend-rail-spinner {
       width: 12px;
@@ -443,7 +447,7 @@
 
       .leaflet-control-attribution { font-size: 10px; }
 
-      .weekend-rail { padding: 8px 10px 14px; }
+      .weekend-rail { padding: 8px 10px 10px; left: 8px; right: 8px; bottom: 8px; }
       .weekend-rec {
         padding: 10px 12px;
         font-size: .82rem;
@@ -553,9 +557,11 @@
 
   <div class="map-pane">
     <div id="map"></div>
-    <div id="weekend-rail" hidden>
+    <div id="weekend-rail" class="is-hidden" aria-label="Anbefalt neste helger">
       <div class="weekend-rail-head">Anbefalt neste helger</div>
-      <div id="weekend-rail-items" class="weekend-rail-items"></div>
+      <div id="weekend-rail-items" class="weekend-rail-items">
+        <div class="weekend-rail-loading"><span class="weekend-rail-spinner"></span>Sjekker ledige helger...</div>
+      </div>
     </div>
   </div>
 </div>
@@ -762,6 +768,7 @@ async function loadData() {
     populateFilters();
     applyFilters();
     document.getElementById('loading').style.display = 'none';
+    refreshMapSize();
     loadWeekendRecommendations();
   } catch (e) {
     document.getElementById('loading').innerHTML = `
@@ -872,32 +879,36 @@ function formatWeekendNo(fromYmd, toYmd) {
 function hideWeekendRail() {
   const rail = document.getElementById('weekend-rail');
   const items = document.getElementById('weekend-rail-items');
-  if (rail) rail.hidden = true;
+  if (rail) rail.classList.add('is-hidden');
   if (items) items.innerHTML = '';
 }
 
-function setWeekendRailLoading() {
+function showWeekendRail() {
   const rail = document.getElementById('weekend-rail');
+  if (rail) rail.classList.remove('is-hidden');
+}
+
+function setWeekendRailLoading() {
   const items = document.getElementById('weekend-rail-items');
-  if (!rail || !items) return;
+  if (!items) return;
   items.innerHTML = '<div class="weekend-rail-loading"><span class="weekend-rail-spinner"></span>Sjekker ledige helger...</div>';
-  rail.hidden = false;
+  showWeekendRail();
 }
 
 function renderWeekendRail(recs) {
-  const rail = document.getElementById('weekend-rail');
   const items = document.getElementById('weekend-rail-items');
-  if (!rail || !items) return;
+  if (!items) return;
   if (!recs.length) {
     hideWeekendRail();
     return;
   }
+  const activeId = document.querySelector('.weekend-rec.active')?.dataset.id;
   items.innerHTML = recs.map(rec => `
-    <button type="button" class="weekend-rec" data-id="${esc(rec.cabin.id)}" data-from="${rec.from}" data-to="${rec.to}">
+    <button type="button" class="weekend-rec${activeId === rec.cabin.id ? ' active' : ''}" data-id="${esc(rec.cabin.id)}" data-from="${rec.from}" data-to="${rec.to}">
       <span class="weekend-rec-name">${esc(rec.cabin.name)}</span><span class="weekend-rec-sep"> · </span><span class="weekend-rec-dates">${esc(formatWeekendNo(rec.from, rec.to))}</span>
     </button>
   `).join('');
-  rail.hidden = false;
+  showWeekendRail();
 }
 
 async function applyWeekendRecommendation(cabinId, from, to, button) {
@@ -930,7 +941,14 @@ async function loadWeekendRecommendations() {
     setWeekendRailLoading();
 
     const weekends = nextWeekendRanges(WEEKEND_COUNT);
-    const hits = [];
+    const cabinsById = new Map(allCabins.map(c => [c.id, c]));
+    const soonest = new Map();
+
+    const recsFromSoonest = () => [...soonest.values()].sort((a, b) => {
+      if (a.from !== b.from) return a.from < b.from ? -1 : 1;
+      return a.cabin.name.localeCompare(b.cabin.name, 'no');
+    });
+
     for (let i = 0; i < weekends.length; i += WEEKEND_BATCH) {
       const batch = weekends.slice(i, i + WEEKEND_BATCH);
       const results = await Promise.all(batch.map(async weekend => {
@@ -943,29 +961,21 @@ async function loadWeekendRecommendations() {
         }
       }));
       for (const result of results) {
-        if (result) hits.push(result);
+        if (!result) continue;
+        for (const id of result.ids) {
+          if (!starred.has(id) || soonest.has(id)) continue;
+          const cabin = cabinsById.get(id);
+          if (!cabin) continue;
+          soonest.set(id, { cabin, from: result.from, to: result.to });
+        }
       }
+      if (soonest.size) renderWeekendRail(recsFromSoonest());
     }
 
-    const cabinsById = new Map(allCabins.map(c => [c.id, c]));
-    const soonest = new Map();
-    for (const weekend of hits) {
-      for (const id of weekend.ids) {
-        if (!starred.has(id) || soonest.has(id)) continue;
-        const cabin = cabinsById.get(id);
-        if (!cabin) continue;
-        soonest.set(id, { cabin, from: weekend.from, to: weekend.to });
-      }
-    }
-
-    const recs = [...soonest.values()].sort((a, b) => {
-      if (a.from !== b.from) return a.from < b.from ? -1 : 1;
-      return a.cabin.name.localeCompare(b.cabin.name, 'no');
-    });
-    renderWeekendRail(recs);
+    if (!soonest.size) hideWeekendRail();
   } catch (err) {
     console.warn('Anbefalte helger feilet:', err);
-    hideWeekendRail();
+    if (!document.querySelector('.weekend-rec')) hideWeekendRail();
   }
 }
 
