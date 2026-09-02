@@ -133,6 +133,7 @@
     .cabin-tag.sold { background: #fde; color: #900; }
     .cabin-tag.available { background: #e8f5e9; color: #2e7d32; }
     .cabin-tag.unavailable { background: #fde; color: #900; }
+    .cabin-tag.listed { background: #fff8e1; color: #8a6d00; }
 
     #date-status.loading::before {
       content: ''; display: inline-block; width: 10px; height: 10px;
@@ -151,6 +152,31 @@
     .popup-amenity { font-size: .65rem; padding: 1px 6px; border-radius: 10px; background: #f0f4f0; color: #555; }
     .popup-link { display: inline-block; margin-top: 6px; padding: 5px 14px; background: #2c6e49; color: white; border-radius: 5px; text-decoration: none; font-size: .8rem; }
     .popup-link:hover { background: #235c3c; }
+    .popup-lists { margin: 8px 0 4px; padding: 6px 8px; background: #fff8e1; border-radius: 6px; }
+    .popup-lists-label { font-size: .72rem; font-weight: 700; color: #8a6d00; margin-bottom: 3px; }
+    .popup-lists ul { margin: 0; padding-left: 16px; }
+    .popup-lists li { font-size: .74rem; color: #5c4a00; margin-bottom: 2px; }
+
+    .map-pin {
+      width: 12px;
+      height: 12px;
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,.4);
+      position: relative;
+    }
+    .map-pin.listed {
+      box-shadow: 0 0 0 2px #e6b422, 0 1px 4px rgba(0,0,0,.45);
+    }
+    .map-pin-badge {
+      position: absolute;
+      top: -9px;
+      right: -8px;
+      font-size: 11px;
+      line-height: 1;
+      color: #e6b422;
+      text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0,0,0,.35);
+    }
 
     .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
 
@@ -308,6 +334,12 @@
         <label>Fritekst</label>
         <input type="text" id="f-search" placeholder="Navn, sted, beskrivelse..." />
       </div>
+      <div class="filter-row" id="list-filter-row" hidden>
+        <label>iNatur-lister</label>
+        <select id="f-list">
+          <option value="">Alle hytter</option>
+        </select>
+      </div>
       <div class="filter-row">
         <label>Fylke</label>
         <select id="f-county">
@@ -385,6 +417,8 @@ const clusterGroup = L.markerClusterGroup({
 map.addLayer(clusterGroup);
 
 let allCabins = [];
+let cabinLists = [];
+let listsByCabinId = {};
 let markerMap = {};
 let availableIds = null;  // null = no date filter, Set = filtered IDs
 const MOBILE_BREAKPOINT = 900;
@@ -444,12 +478,34 @@ function setupMobileViewToggle() {
 }
 
 // ──────────────── LOAD DATA ────────────────
+function indexCabinLists(lists) {
+  cabinLists = Array.isArray(lists) ? lists : [];
+  listsByCabinId = {};
+  cabinLists.forEach(list => {
+    (list.cabinIds || []).forEach(id => {
+      if (!listsByCabinId[id]) listsByCabinId[id] = [];
+      listsByCabinId[id].push(list);
+    });
+  });
+}
+
+function listsForCabin(id) {
+  return listsByCabinId[id] || [];
+}
+
 async function loadData() {
   try {
-    const res = await fetch('cabins-data.json');
+    const [res, listsRes] = await Promise.all([
+      fetch('cabins-data.json'),
+      fetch('lists-data.json').catch(() => null),
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     allCabins = data.cabins.filter(c => c.lat && c.lng);
+    if (listsRes && listsRes.ok) {
+      const listsData = await listsRes.json();
+      indexCabinLists(listsData.lists);
+    }
     document.getElementById('cabin-count').textContent = `${allCabins.length} hytter`;
     populateFilters();
     applyFilters();
@@ -498,7 +554,24 @@ async function fetchAvailableCabinIds(fromDate, toDate) {
 }
 
 // ──────────────── POPULATE FILTERS ────────────────
+function populateListFilter() {
+  const row = document.getElementById('list-filter-row');
+  const sel = document.getElementById('f-list');
+  if (!row || !sel) return;
+  if (!cabinLists.length) {
+    row.hidden = true;
+    return;
+  }
+  sel.innerHTML = [
+    '<option value="">Alle hytter</option>',
+    '<option value="any">Alle på lister</option>',
+    ...cabinLists.map(list => `<option value="${esc(list.url)}">${esc(list.title)}</option>`),
+  ].join('');
+  row.hidden = false;
+}
+
 function populateFilters() {
+  populateListFilter();
   const counties = [...new Set(allCabins.flatMap(c => c.counties))].sort();
   const sel = document.getElementById('f-county');
   sel.innerHTML = '<option value="">Alle fylker</option>' + counties.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -561,12 +634,16 @@ async function applyFilters() {
   }
 
   const search = document.getElementById('f-search').value.toLowerCase().trim();
+  const listFilter = document.getElementById('f-list')?.value || '';
   const minBeds = parseInt(document.getElementById('f-beds').value) || 0;
   const maxPrice = parseInt(document.getElementById('f-price').value) || Infinity;
   const county = document.getElementById('f-county').value;
   const municipality = document.getElementById('f-municipality').value;
   const availability = document.getElementById('f-available').value;
   const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
+  const selectedList = listFilter && listFilter !== 'any'
+    ? cabinLists.find(list => list.url === listFilter)
+    : null;
 
   const filtered = allCabins.filter(c => {
     // Date availability filter
@@ -575,6 +652,8 @@ async function applyFilters() {
       const hay = `${c.name} ${c.description} ${c.stedsnavn || ''} ${c.municipalities.join(' ')} ${c.counties.join(' ')} ${c.provider}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
+    if (listFilter === 'any' && !listsByCabinId[c.id]) return false;
+    if (selectedList && !(selectedList.cabinIds || []).includes(c.id)) return false;
     if (minBeds && c.beds < minBeds) return false;
     if (maxPrice < Infinity && c.priceFrom > maxPrice) return false;
     if (county && !c.counties.includes(county)) return false;
@@ -598,7 +677,12 @@ function updateList(cabins) {
   }
   const shown = cabins.slice(0, 200);
   const extra = cabins.length > 200 ? `<div class="no-results">Viser ${shown.length} av ${cabins.length}. Bruk filter for å begrense.</div>` : '';
-  el.innerHTML = shown.map(c => `
+  el.innerHTML = shown.map(c => {
+    const onLists = listsForCabin(c.id);
+    const listBadge = onLists.length
+      ? `<span class="cabin-tag listed">${onLists.length === 1 ? 'På liste' : `På ${onLists.length} lister`}</span>`
+      : '';
+    return `
     <div class="cabin-card${c.soldOut ? ' sold-out' : ''}" data-id="${c.id}" onclick="focusCabin('${c.id}')">
       <h3>${esc(c.name)}</h3>
       <div class="cabin-location">${esc(c.municipalities.join(', '))}${c.counties.length ? ' — ' + esc(c.counties.join(', ')) : ''}</div>
@@ -606,9 +690,11 @@ function updateList(cabins) {
         ${c.beds ? `<span class="cabin-tag beds">${c.beds} senger</span>` : ''}
         ${c.priceFrom ? `<span class="cabin-tag price">fra ${c.priceFrom} kr</span>` : ''}
         ${c.soldOut ? `<span class="cabin-tag sold">Opptatt</span>` : ''}
+        ${listBadge}
       </div>
     </div>
-  `).join('') + extra;
+  `;
+  }).join('') + extra;
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -621,11 +707,12 @@ function updateMap(cabins) {
   cabins.forEach(c => {
     if (!c.lat || !c.lng) return;
 
+    const onLists = listsForCabin(c.id);
     const icon = L.divIcon({
       className: '',
-      html: `<div style="width:12px;height:12px;background:${c.soldOut ? '#c0392b' : '#2c6e49'};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6],
+      html: `<div class="map-pin${onLists.length ? ' listed' : ''}" style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}">${onLists.length ? '<span class="map-pin-badge">★</span>' : ''}</div>`,
+      iconSize: onLists.length ? [18, 18] : [12, 12],
+      iconAnchor: onLists.length ? [9, 9] : [6, 6],
     });
 
     const amenityHtml = (c.amenities || []).slice(0, 8).map(a =>
@@ -643,6 +730,7 @@ function updateMap(cabins) {
         ${c.priceFrom ? `<div class="popup-meta">Fra ${c.priceFrom} kr/natt</div>` : ''}
         <div class="popup-meta">${esc(c.municipalities.join(', '))} — ${esc(c.counties.join(', '))}</div>
         ${c.provider ? `<div class="popup-meta" style="color:#888;font-size:.75rem">Tilbyder: ${esc(c.provider)}</div>` : ''}
+        ${onLists.length ? `<div class="popup-lists"><div class="popup-lists-label">På iNatur-lister</div><ul>${onLists.map(list => `<li>${esc(list.title)}</li>`).join('')}</ul></div>` : ''}
         ${amenityHtml ? `<div class="popup-amenities">${amenityHtml}</div>` : ''}
         <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
       `, { maxWidth: 300 });
@@ -688,6 +776,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('f-county').value = '';
   document.getElementById('f-municipality').innerHTML = '<option value="">Alle kommuner</option>';
   document.getElementById('f-available').value = 'available';
+  const listSelect = document.getElementById('f-list');
+  if (listSelect) listSelect.value = '';
   document.getElementById('date-status').style.display = 'none';
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   availableIds = null;

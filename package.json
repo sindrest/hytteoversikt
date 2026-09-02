@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public",
-    "fetch-cabins": "node fetch-cabins.mjs"
+    "fetch-cabins": "node fetch-cabins.mjs",
+    "fetch-lists": "node fetch-lists.mjs"
   },
   "devDependencies": {
     "wrangler": "^4"
