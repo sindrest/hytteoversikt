@@ -4,6 +4,7 @@
 //   node scripts/cabin-refresh-summary.mjs \
 //     --prev /tmp/cabins-data.prev.json \
 //     --next public/cabins-data.json \
+//     --occupancy public/occupancy-history.json \
 //     --out /tmp/cabin-refresh-pr-body.md
 //
 // If only fetchedAt changed, restores --next from --prev so the Action
@@ -64,12 +65,23 @@ function missingCabins(data) {
   return (data.cabins || []).filter((c) => !c.lat || !c.lng);
 }
 
-function buildBody(prev, next) {
+function occupancyStats(history) {
+  const snapshots = history?.snapshots || [];
+  const latest = snapshots[snapshots.length - 1];
+  return {
+    count: snapshots.length,
+    latestFetchedAt: latest?.fetchedAt || 'none',
+    latestSoldOut: latest?.soldOutIds?.length ?? 0,
+  };
+}
+
+function buildBody(prev, next, occupancy) {
   const a = stats(prev);
   const b = stats(next);
   const missing = missingCabins(next);
+  const occ = occupancyStats(occupancy);
 
-  let body = `Refresh the static iNatur cabin dump in \`public/cabins-data.json\`. Opened automatically by the weekday refresh workflow (no push to \`main\`).
+  let body = `Refresh the static iNatur cabin dump in \`public/cabins-data.json\` and append one occupancy snapshot to \`public/occupancy-history.json\`. Opened automatically by the weekday refresh workflow (no push to \`main\`).
 
 ## Before / after
 
@@ -79,6 +91,14 @@ function buildBody(prev, next) {
 | **this refresh** | ${b.fetchedAt} | ${b.total} | ${b.withCoords} | ${b.missing} |
 
 Net change: **${signed(b.total - a.total)} cabins**, ${signed(b.withCoords - a.withCoords)} with coordinates, **${signed(b.missing - a.missing)} still missing coordinates**.
+
+## Occupancy history
+
+| snapshots | latest fetchedAt | soldOut in latest |
+|---|---|---|
+| ${occ.count} | ${occ.latestFetchedAt} | ${occ.latestSoldOut} |
+
+One snapshot per UTC date from the new dump's \`soldOut\` (\`utsolgt\`). Same-date reruns are skipped. Oldest weeks are dropped after 52.
 
 ## Missing coordinates
 
@@ -92,7 +112,7 @@ Net change: **${signed(b.total - a.total)} cabins**, ${signed(b.withCoords - a.w
     body += `\n<details>\n<summary>${missing.length} cabins missing coordinates</summary>\n\n${rows}\n</details>\n`;
   }
 
-  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay). Only \`public/cabins-data.json\` is updated.\n`;
+  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay) and \`npm run append-occupancy\`. The PR includes \`public/cabins-data.json\` and \`public/occupancy-history.json\`.\n`;
   return body;
 }
 
@@ -110,6 +130,12 @@ function main() {
 
   const prev = loadDump(args.prev);
   const next = loadDump(args.next);
+  const occupancy = args.occupancy
+    ? JSON.parse(readFileSync(args.occupancy, 'utf8'))
+    : { snapshots: [] };
+  if (args.occupancy && !Array.isArray(occupancy.snapshots)) {
+    throw new Error(`${args.occupancy} is not a valid occupancy-history.json`);
+  }
   const prevStats = stats(prev);
   const nextStats = stats(next);
 
@@ -122,7 +148,7 @@ function main() {
     );
   }
 
-  writeFileSync(args.out, buildBody(prev, next));
+  writeFileSync(args.out, buildBody(prev, next, occupancy));
 
   const material = isMaterialChange(prev, next);
   if (!material) {
