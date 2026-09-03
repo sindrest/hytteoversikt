@@ -172,7 +172,7 @@
       cursor: pointer;
       transition: border-color .15s, box-shadow .15s;
     }
-    .cabin-card:hover, .cabin-card.active {
+    .cabin-card:hover, .cabin-card.active, .cabin-card.hovered {
       border-color: #2c6e49;
       box-shadow: 0 0 0 2px rgba(44,110,73,.15);
     }
@@ -339,6 +339,43 @@
       flex-shrink: 0;
     }
 
+    .cabin-peek {
+      display: none;
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      z-index: 1100;
+      gap: 10px;
+      align-items: center;
+      padding: 8px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid #d5e3d8;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.16);
+    }
+    .cabin-peek.is-hidden { display: none !important; }
+    .cabin-peek-img {
+      width: 96px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .cabin-peek-body { min-width: 0; flex: 1; }
+    .cabin-peek-name {
+      font-weight: 600;
+      font-size: .85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cabin-peek-kommune {
+      font-size: .72rem;
+      color: #888;
+      margin: 2px 0 6px;
+    }
+
     .leaflet-popup-content { min-width: 220px; max-width: 300px; }
     .popup-img { width: 100%; height: 120px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; }
     .popup-title { font-weight: 700; font-size: .95rem; margin-bottom: 4px; color: #2c6e49; }
@@ -391,6 +428,22 @@
     }
     .map-pin.listed {
       box-shadow: 0 0 0 2px #e6b422, 0 1px 4px rgba(0,0,0,.45);
+    }
+    .leaflet-marker-icon.pin-emphasis {
+      overflow: visible !important;
+    }
+    .map-pin.hovered, .map-pin.selected {
+      transform: scale(1.35);
+      box-shadow: 0 0 0 3px #fff, 0 0 0 6px #2c6e49, 0 2px 8px rgba(0,0,0,.35);
+    }
+    .map-pin.listed.hovered, .map-pin.listed.selected {
+      box-shadow: 0 0 0 2px #e6b422, 0 0 0 6px #2c6e49, 0 2px 8px rgba(0,0,0,.35);
+    }
+    .map-pin.approx.hovered, .map-pin.approx.selected {
+      box-shadow: 0 0 0 3px #fff, 0 0 0 6px #2c6e49, 0 1px 3px rgba(0,0,0,.22);
+    }
+    .map-pin.approx.listed.hovered, .map-pin.approx.listed.selected {
+      box-shadow: 0 0 0 2px #e6b422, 0 0 0 6px #2c6e49, 0 1px 3px rgba(0,0,0,.22);
     }
     .map-pin-badge {
       position: absolute;
@@ -600,6 +653,7 @@
       .map-bounds-btn { top: 10px; font-size: .78rem; padding: 7px 12px; }
       .weekend-rail { padding: 8px 10px 10px; left: 8px; right: 8px; bottom: 8px; }
       .weekend-rec { width: 148px; }
+      .cabin-peek:not(.is-hidden) { display: flex; }
     }
   </style>
 </head>
@@ -717,6 +771,7 @@
         <div class="weekend-rail-loading"><span class="weekend-rail-spinner"></span>Sjekker ledige helger...</div>
       </div>
     </div>
+    <div id="cabin-peek" class="cabin-peek is-hidden" hidden></div>
   </div>
 </div>
 
@@ -773,6 +828,8 @@ let occupancySnapshots = [];
 let rarityByCabinId = {};
 let rarityReady = false;
 let markerMap = {};
+let hoveredCabinId = null;
+let selectedCabinId = null;
 let availableIds = null;  // null = no date filter, Set = filtered IDs
 const HEARTS_KEY = 'hytteoversikt-hearts';
 let heartedIds = new Set();
@@ -818,6 +875,7 @@ function setMobileView(view) {
   document.body.classList.add(`mobile-view-${nextView}`);
   updateMobileViewButtons(nextView);
   refreshMapSize();
+  syncCabinPeek();
 }
 
 function setupMobileViewToggle() {
@@ -834,12 +892,15 @@ function setupMobileViewToggle() {
       document.body.classList.add(`mobile-view-${activeView}`);
       updateMobileViewButtons(activeView);
       refreshMapSize();
+      if (hoveredCabinId) clearCabinHover();
+      syncCabinPeek();
       return;
     }
 
     document.body.classList.remove('mobile-view-map', 'mobile-view-list');
     mobileViewButtons.forEach(btn => btn.classList.remove('active'));
     refreshMapSize();
+    hideCabinPeek();
   };
 
   window.addEventListener('resize', syncMobileLayout);
@@ -1119,11 +1180,13 @@ function hideWeekendRail() {
   const items = document.getElementById('weekend-rail-items');
   if (rail) rail.classList.add('is-hidden');
   if (items) items.innerHTML = '';
+  syncCabinPeekPosition();
 }
 
 function showWeekendRail() {
   const rail = document.getElementById('weekend-rail');
   if (rail) rail.classList.remove('is-hidden');
+  requestAnimationFrame(syncCabinPeekPosition);
 }
 
 function setWeekendRailLoading() {
@@ -1734,9 +1797,175 @@ function updateList(cabins) {
     </div>
   `;
   }).join('') + extra;
+  restoreCabinCardHighlights();
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function cabinCardEl(id) {
+  return document.querySelector(`.cabin-card[data-id="${id}"]`);
+}
+
+function pinElForCabin(id) {
+  const marker = markerMap[id];
+  if (!marker) return null;
+  const el = marker.getElement();
+  return el ? el.querySelector('.map-pin') : null;
+}
+
+function syncPinEmphasis(id) {
+  const pin = pinElForCabin(id);
+  const marker = markerMap[id];
+  const on = !!(pin && (pin.classList.contains('hovered') || pin.classList.contains('selected')));
+  if (pin) {
+    const icon = pin.closest('.leaflet-marker-icon');
+    if (icon) icon.classList.toggle('pin-emphasis', on);
+  }
+  if (marker) marker.setZIndexOffset(on ? 1000 : 0);
+}
+
+function setPinClass(id, className, on) {
+  const pin = pinElForCabin(id);
+  if (pin) pin.classList.toggle(className, on);
+  syncPinEmphasis(id);
+}
+
+function restoreCabinCardHighlights() {
+  if (hoveredCabinId) {
+    const card = cabinCardEl(hoveredCabinId);
+    if (card) card.classList.add('hovered');
+  }
+  if (selectedCabinId) {
+    const card = cabinCardEl(selectedCabinId);
+    if (card) card.classList.add('active');
+  }
+}
+
+function restoreCabinPinHighlights() {
+  if (hoveredCabinId) setPinClass(hoveredCabinId, 'hovered', true);
+  if (selectedCabinId) setPinClass(selectedCabinId, 'selected', true);
+}
+
+function clearCabinHover() {
+  const id = hoveredCabinId;
+  hoveredCabinId = null;
+  document.querySelectorAll('.cabin-card.hovered').forEach(el => el.classList.remove('hovered'));
+  if (id) setPinClass(id, 'hovered', false);
+}
+
+function applyCabinHover(id, { scrollCard = false } = {}) {
+  if (!id || isMobileViewport()) return;
+  if (hoveredCabinId === id) return;
+  clearCabinHover();
+  hoveredCabinId = id;
+  const card = cabinCardEl(id);
+  if (card) {
+    card.classList.add('hovered');
+    if (scrollCard) card.scrollIntoView({ block: 'nearest' });
+  }
+  setPinClass(id, 'hovered', true);
+}
+
+function cabinPeekEl() {
+  return document.getElementById('cabin-peek');
+}
+
+function hideCabinPeek() {
+  const peek = cabinPeekEl();
+  if (!peek) return;
+  peek.classList.add('is-hidden');
+  peek.hidden = true;
+  peek.innerHTML = '';
+  peek.style.bottom = '';
+}
+
+function syncCabinPeekPosition() {
+  const peek = cabinPeekEl();
+  if (!peek || peek.classList.contains('is-hidden')) return;
+  const rail = document.getElementById('weekend-rail');
+  const railH = rail && !rail.classList.contains('is-hidden') ? rail.offsetHeight : 0;
+  peek.style.bottom = railH ? `${railH + 8}px` : '';
+}
+
+function showCabinPeek(id) {
+  const peek = cabinPeekEl();
+  if (!peek || !isMobileViewport() || !document.body.classList.contains('mobile-view-map')) {
+    hideCabinPeek();
+    return;
+  }
+  const cabin = allCabins.find(c => c.id === id);
+  if (!cabin) {
+    hideCabinPeek();
+    return;
+  }
+  const imgHtml = cabin.image
+    ? `<img class="cabin-peek-img" src="${cabin.image}/w=300,h=180,fit=cover,format=auto" alt="" onerror="this.style.display='none'" />`
+    : '';
+  const kommune = (cabin.municipalities || []).join(', ');
+  peek.innerHTML = `
+    ${imgHtml}
+    <div class="cabin-peek-body">
+      <div class="cabin-peek-name">${esc(cabin.name)}</div>
+      ${kommune ? `<div class="cabin-peek-kommune">${esc(kommune)}</div>` : ''}
+      <a class="popup-link" href="${esc(cabin.url)}" target="_blank" rel="noopener">Se på iNatur</a>
+    </div>
+  `;
+  peek.classList.remove('is-hidden');
+  peek.hidden = false;
+  requestAnimationFrame(syncCabinPeekPosition);
+}
+
+function syncCabinPeek() {
+  if (isMobileViewport() && selectedCabinId && document.body.classList.contains('mobile-view-map')) {
+    showCabinPeek(selectedCabinId);
+    return;
+  }
+  hideCabinPeek();
+}
+
+function cabinIdFromPopup(popup) {
+  return popup && popup._source && popup._source._cabinId ? popup._source._cabinId : null;
+}
+
+function setupCabinHoverSync() {
+  const list = document.getElementById('cabin-list');
+  if (!list) return;
+  list.addEventListener('pointerover', e => {
+    if (isMobileViewport()) return;
+    const card = e.target.closest('.cabin-card');
+    if (!card || !list.contains(card)) return;
+    applyCabinHover(card.dataset.id);
+  });
+  list.addEventListener('pointerout', e => {
+    if (isMobileViewport()) return;
+    const card = e.target.closest('.cabin-card');
+    if (!card) return;
+    const next = e.relatedTarget;
+    if (next && card.contains(next)) return;
+    if (hoveredCabinId === card.dataset.id) clearCabinHover();
+  });
+}
+
+function setupCabinPeek() {
+  map.on('popupopen', e => {
+    const id = cabinIdFromPopup(e.popup);
+    if (!id) return;
+    if (selectedCabinId && selectedCabinId !== id) setPinClass(selectedCabinId, 'selected', false);
+    selectedCabinId = id;
+    setPinClass(id, 'selected', true);
+    if (isMobileViewport()) showCabinPeek(id);
+  });
+  map.on('popupclose', e => {
+    const id = cabinIdFromPopup(e.popup);
+    if (id) setPinClass(id, 'selected', false);
+    if (selectedCabinId === id) selectedCabinId = null;
+    hideCabinPeek();
+  });
+  const rail = document.getElementById('weekend-rail');
+  if (rail && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => syncCabinPeekPosition()).observe(rail);
+  }
+}
 
 // ──────────────── MAP ────────────────
 function listedHomeLatLng(marker) {
@@ -1853,6 +2082,11 @@ function updateMap(cabins) {
       pane: listed ? 'listedPane' : 'markerPane',
       riseOnHover: listed,
     }).bindPopup(cabinPopupHtml(c), { maxWidth: 300 });
+    m._cabinId = c.id;
+    m.on('mouseover', () => applyCabinHover(c.id, { scrollCard: true }));
+    m.on('mouseout', () => {
+      if (hoveredCabinId === c.id) clearCabinHover();
+    });
 
     if (listed) {
       m._homeLatLng = L.latLng(c.lat, c.lng);
@@ -1863,6 +2097,7 @@ function updateMap(cabins) {
     }
     markerMap[c.id] = m;
   });
+  restoreCabinPinHighlights();
 }
 
 map.on('zoomstart', unspiderfyListed);
@@ -1932,6 +2167,8 @@ setupWeekendRail();
 setupListChips();
 setupAreaChips();
 setupBoundsSearch();
+setupCabinHoverSync();
+setupCabinPeek();
 loadData();
 </script>
 </body>
