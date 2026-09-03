@@ -1475,14 +1475,32 @@ async function applyFilters() {
 }
 
 // ──────────────── LIST ────────────────
+function sidebarPrice(cabin) {
+  const price = Number(cabin.priceFrom);
+  return Number.isFinite(price) && price > 0 ? price : Infinity;
+}
+
+function compareSidebarCabins(a, b) {
+  const listed = Number(listsForCabin(b.id).length > 0) - Number(listsForCabin(a.id).length > 0);
+  if (listed) return listed;
+  const rare = Number(isRareCabin(b.id)) - Number(isRareCabin(a.id));
+  if (rare) return rare;
+  const sold = Number(!!a.soldOut) - Number(!!b.soldOut);
+  if (sold) return sold;
+  const price = sidebarPrice(a) - sidebarPrice(b);
+  if (price) return price;
+  return String(a.name || '').localeCompare(String(b.name || ''), 'no');
+}
+
 function updateList(cabins) {
   const el = document.getElementById('cabin-list');
   if (!cabins.length) {
     el.innerHTML = '<div class="no-results">Ingen hytter matcher filteret.</div>';
     return;
   }
-  const shown = cabins.slice(0, 200);
-  const extra = cabins.length > 200 ? `<div class="no-results">Viser ${shown.length} av ${cabins.length}. Bruk filter for å begrense.</div>` : '';
+  const ranked = cabins.slice().sort(compareSidebarCabins);
+  const shown = ranked.slice(0, 200);
+  const extra = ranked.length > 200 ? `<div class="no-results">Viser ${shown.length} av ${ranked.length}. Bruk filter for å begrense.</div>` : '';
   el.innerHTML = shown.map(c => {
     const onLists = listsForCabin(c.id);
     const rare = isRareCabin(c.id);
