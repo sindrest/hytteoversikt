@@ -145,6 +145,26 @@
       color: white;
       border-color: #2c6e49;
     }
+    .hearts-chip-group {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 6px;
+    }
+    .copy-heart-links {
+      flex: 0 0 auto;
+      font: inherit;
+      font-size: .72rem;
+      line-height: 1.25;
+      padding: 5px 10px;
+      border-radius: 14px;
+      border: 1px solid #c5d4c8;
+      background: white;
+      color: #3f4f44;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .copy-heart-links[hidden] { display: none !important; }
     .list-article {
       font-size: .74rem;
       color: #555;
@@ -646,6 +666,10 @@
         padding: 6px 12px;
         max-width: 220px;
       }
+      .copy-heart-links {
+        font-size: .76rem;
+        padding: 6px 12px;
+      }
       .list-article { font-size: .76rem; }
 
       #cabin-list { padding: 10px; }
@@ -1067,6 +1091,7 @@ function toggleHeart(id) {
   if (heartedIds.has(id)) heartedIds.delete(id);
   else heartedIds.add(id);
   persistHearts();
+  syncCopyHeartLinksButton();
 
   if (heartsFilterOn) {
     refreshVisibleCabins();
@@ -1461,6 +1486,9 @@ function populateListChips(lists) {
     addChip('any', 'Alle på lister');
     lists.forEach(list => addChip(list.url, list.title));
   }
+  const heartsGroup = document.createElement('div');
+  heartsGroup.className = 'hearts-chip-group';
+
   const hearts = document.createElement('button');
   hearts.type = 'button';
   hearts.id = 'hearts-chip';
@@ -1469,7 +1497,59 @@ function populateListChips(lists) {
   hearts.title = 'Mine hytter';
   hearts.setAttribute('aria-pressed', heartsFilterOn ? 'true' : 'false');
   if (heartsFilterOn) hearts.classList.add('active');
-  chips.appendChild(hearts);
+  heartsGroup.appendChild(hearts);
+
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.id = 'copy-heart-links';
+  copy.className = 'copy-heart-links';
+  copy.textContent = 'Kopier lenker';
+  copy.title = 'Kopier lenker';
+  heartsGroup.appendChild(copy);
+
+  chips.appendChild(heartsGroup);
+  syncCopyHeartLinksButton();
+}
+
+let copyHeartLinksResetTimer = null;
+
+function syncCopyHeartLinksButton() {
+  const btn = document.getElementById('copy-heart-links');
+  if (!btn) return;
+  const hasHearts = heartedIds.size > 0;
+  btn.hidden = !hasHearts;
+  if (!hasHearts) {
+    btn.textContent = 'Kopier lenker';
+    if (copyHeartLinksResetTimer) {
+      clearTimeout(copyHeartLinksResetTimer);
+      copyHeartLinksResetTimer = null;
+    }
+  }
+}
+
+function heartedCabinUrls() {
+  return allCabins
+    .filter(c => isHearted(c.id))
+    .sort(compareSidebarCabins)
+    .map(c => c.url)
+    .filter(url => typeof url === 'string' && url);
+}
+
+async function copyHeartedCabinUrls() {
+  const btn = document.getElementById('copy-heart-links');
+  const text = heartedCabinUrls().join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    if (!btn) return;
+    btn.textContent = 'Kopiert';
+    if (copyHeartLinksResetTimer) clearTimeout(copyHeartLinksResetTimer);
+    copyHeartLinksResetTimer = setTimeout(() => {
+      copyHeartLinksResetTimer = null;
+      if (btn.isConnected) btn.textContent = 'Kopier lenker';
+    }, 1500);
+  } catch (err) {
+    console.warn(err);
+  }
 }
 
 function syncListArticleLink() {
@@ -1579,6 +1659,10 @@ function setupListChips() {
   const chips = document.getElementById('list-chips');
   if (!chips) return;
   chips.addEventListener('click', e => {
+    if (e.target.closest('#copy-heart-links')) {
+      copyHeartedCabinUrls();
+      return;
+    }
     const chip = e.target.closest('.list-chip');
     if (!chip) return;
     if (chip.id === 'hearts-chip') {
