@@ -803,6 +803,17 @@
         </select>
       </div>
       <div class="filter-row">
+        <label>Avstand fra vei (vinter)</label>
+        <select id="f-vinter">
+          <option value="" selected>Alle</option>
+          <option value="0">Bilvei helt frem</option>
+          <option value="0.5">Høyst 0,5 km</option>
+          <option value="1">Høyst 1 km</option>
+          <option value="2">Høyst 2 km</option>
+          <option value="5">Høyst 5 km</option>
+        </select>
+      </div>
+      <div class="filter-row">
         <label>Vis opptatt</label>
         <select id="f-available">
           <option value="all">Ja, vis alle</option>
@@ -1787,6 +1798,7 @@ function serializeFilters() {
   const availability = document.getElementById('f-available').value;
   const exactOnly = document.getElementById('f-coords')?.value === 'exact';
   const vei = document.getElementById('f-vei')?.value || '';
+  const vinter = document.getElementById('f-vinter')?.value || '';
   const amenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
 
   if (dateFrom) params.set('fra', dateFrom);
@@ -1801,6 +1813,7 @@ function serializeFilters() {
   if (availability && availability !== 'available') params.set('ledige', availability);
   if (exactOnly) params.set('ca', '1');
   if (vei !== '') params.set('vei', vei);
+  if (vinter !== '') params.set('vinter', vinter);
   if (selectedAreaId) params.set('område', selectedAreaId);
   amenities.forEach(key => params.append('amenity', key));
   return params;
@@ -1841,6 +1854,7 @@ function restoreFiltersFromUrl() {
     if (coordsSelect) coordsSelect.value = 'exact';
   }
   setSelectValue(document.getElementById('f-vei'), params.get('vei'));
+  setSelectValue(document.getElementById('f-vinter'), params.get('vinter'));
 
   const wantedAmenities = new Set(params.getAll('amenity'));
   if (wantedAmenities.size) {
@@ -1868,6 +1882,8 @@ function filterCabinsByForm() {
   const rareOnly = rarityReady && document.getElementById('f-rare')?.value === 'rare';
   const maxRoadKmRaw = document.getElementById('f-vei')?.value ?? '';
   const maxRoadKm = maxRoadKmRaw === '' ? null : Number(maxRoadKmRaw);
+  const maxWinterKmRaw = document.getElementById('f-vinter')?.value ?? '';
+  const maxWinterKm = maxWinterKmRaw === '' ? null : Number(maxWinterKmRaw);
   const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
   const selectedList = listFilter && listFilter !== 'any'
     ? cabinLists.find(list => list.url === listFilter)
@@ -1897,6 +1913,10 @@ function filterCabinsByForm() {
     if (maxRoadKm !== null && Number.isFinite(maxRoadKm)) {
       const dist = Number(c.summerDistanceKm);
       if (!Number.isFinite(dist) || dist > maxRoadKm) return false;
+    }
+    if (maxWinterKm !== null && Number.isFinite(maxWinterKm)) {
+      const winterDist = Number(c.winterDistanceKm);
+      if (!Number.isFinite(winterDist) || winterDist > maxWinterKm) return false;
     }
     if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
     return true;
@@ -2455,6 +2475,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   if (rareSelect) rareSelect.value = '';
   const veiSelect = document.getElementById('f-vei');
   if (veiSelect) veiSelect.value = '';
+  const vinterSelect = document.getElementById('f-vinter');
+  if (vinterSelect) vinterSelect.value = '';
   document.getElementById('date-status').style.display = 'none';
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
