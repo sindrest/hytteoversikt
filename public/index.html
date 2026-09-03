@@ -1650,6 +1650,7 @@ function fitFilteredCabinBounds(cabins) {
 }
 
 function syncMapToListFilter(cabins) {
+  if (boundsFilterOn) return;
   const listFilter = selectedListFilter();
   const specific = listFilter && listFilter !== 'any';
   if (specific) {
