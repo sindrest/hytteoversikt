@@ -113,7 +113,7 @@
 
     .list-browse { margin-bottom: 12px; }
     .list-browse[hidden] { display: none !important; }
-    .list-chips {
+    .list-chips, .area-chips {
       display: flex;
       gap: 6px;
       overflow-x: auto;
@@ -121,7 +121,8 @@
       padding: 0 0 4px;
       scrollbar-width: thin;
     }
-    .list-chip {
+    .area-chips { margin-bottom: 12px; }
+    .list-chip, .area-chip {
       flex: 0 0 auto;
       max-width: 200px;
       font: inherit;
@@ -138,7 +139,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .list-chip.active {
+    .list-chip.active, .area-chip.active {
       background: #2c6e49;
       color: white;
       border-color: #2c6e49;
@@ -567,7 +568,7 @@
         font-size: .76rem;
         padding: 4px 10px;
       }
-      .list-chip {
+      .list-chip, .area-chip {
         font-size: .76rem;
         padding: 6px 12px;
         max-width: 220px;
@@ -632,6 +633,7 @@
         <div id="list-chips" class="list-chips"></div>
         <div id="list-article" class="list-article" hidden></div>
       </div>
+      <div id="area-chips" class="area-chips"></div>
       <h2>Filtrer hytter</h2>
       <div class="filter-row">
         <label>Ledig fra</label>
@@ -775,6 +777,17 @@ let availableIds = null;  // null = no date filter, Set = filtered IDs
 const HEARTS_KEY = 'hytteoversikt-hearts';
 let heartedIds = new Set();
 let heartsFilterOn = false;
+let selectedAreaId = '';
+const AREA_CHIPS = [
+  { id: 'jotunheimen', label: 'Jotunheimen', municipalities: ['Lom', 'Vågå', 'Vang', 'Skjåk'] },
+  { id: 'dovrefjell', label: 'Dovrefjell', municipalities: ['Dovre', 'Lesja', 'Folldal'] },
+  { id: 'rendalen', label: 'Rendalen', municipalities: ['Rendalen'] },
+  { id: 'engerdal', label: 'Engerdal', municipalities: ['Engerdal'] },
+  { id: 'trysil', label: 'Trysil', municipalities: ['Trysil'] },
+  { id: 'roros', label: 'Røros', municipalities: ['Røros'] },
+  { id: 'senja', label: 'Senja', municipalities: ['Senja'] },
+];
+const AREA_BY_ID = Object.fromEntries(AREA_CHIPS.map(area => [area.id, area]));
 const MOBILE_BREAKPOINT = 900;
 const RARITY_MIN_SNAPSHOTS = 4;
 const RARITY_MIN_RATE = 0.5;
@@ -1316,24 +1329,68 @@ function weekendRailPadding() {
   return 180;
 }
 
+function fitFilteredCabinBounds(cabins) {
+  const pts = cabins.filter(c => c.lat && c.lng).map(c => [c.lat, c.lng]);
+  if (!pts.length) return false;
+  map.fitBounds(L.latLngBounds(pts), {
+    paddingTopLeft: [24, 24],
+    paddingBottomRight: [24, weekendRailPadding()],
+    maxZoom: 12,
+  });
+  return true;
+}
+
 function syncMapToListFilter(cabins) {
   const listFilter = selectedListFilter();
   const specific = listFilter && listFilter !== 'any';
   if (specific) {
-    const pts = cabins.filter(c => c.lat && c.lng).map(c => [c.lat, c.lng]);
-    if (!pts.length) return;
-    map.fitBounds(L.latLngBounds(pts), {
-      paddingTopLeft: [24, 24],
-      paddingBottomRight: [24, weekendRailPadding()],
-      maxZoom: 12,
-    });
-    listMapFit = true;
+    if (fitFilteredCabinBounds(cabins)) listMapFit = true;
+    return;
+  }
+  if (selectedAreaId) {
+    fitFilteredCabinBounds(cabins);
+    listMapFit = false;
     return;
   }
   if (listMapFit) {
     map.setView([64.5, 14.0], 5);
     listMapFit = false;
   }
+}
+
+function populateAreaChips() {
+  const chips = document.getElementById('area-chips');
+  if (!chips) return;
+  chips.replaceChildren();
+  AREA_CHIPS.forEach(area => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'area-chip';
+    btn.dataset.area = area.id;
+    btn.textContent = area.label;
+    btn.title = area.label;
+    chips.appendChild(btn);
+  });
+}
+
+function syncAreaChips() {
+  document.querySelectorAll('.area-chip').forEach(chip => {
+    const active = chip.dataset.area === selectedAreaId;
+    chip.classList.toggle('active', active);
+    chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function setupAreaChips() {
+  const chips = document.getElementById('area-chips');
+  if (!chips) return;
+  populateAreaChips();
+  chips.addEventListener('click', e => {
+    const chip = e.target.closest('.area-chip');
+    if (!chip) return;
+    selectedAreaId = chip.classList.contains('active') ? '' : chip.dataset.area;
+    applyFilters();
+  });
 }
 
 function setupListChips() {
@@ -1439,6 +1496,7 @@ function serializeFilters() {
   if (price !== '') params.set('pris', price);
   if (availability && availability !== 'available') params.set('ledige', availability);
   if (exactOnly) params.set('ca', '1');
+  if (selectedAreaId) params.set('område', selectedAreaId);
   amenities.forEach(key => params.append('amenity', key));
   return params;
 }
@@ -1466,6 +1524,8 @@ function restoreFiltersFromUrl() {
   if (kommune) setSelectValue(document.getElementById('f-municipality'), kommune);
 
   setSelectValue(document.getElementById('f-list'), params.get('liste'));
+  const omrade = params.get('område');
+  if (omrade && AREA_BY_ID[omrade]) selectedAreaId = omrade;
   if (params.has('q')) document.getElementById('f-search').value = params.get('q');
   if (params.has('senger')) document.getElementById('f-beds').value = params.get('senger');
   if (params.has('pris')) document.getElementById('f-price').value = params.get('pris');
@@ -1517,6 +1577,10 @@ function filterCabinsByForm() {
     if (maxPrice < Infinity && c.priceFrom > maxPrice) return false;
     if (county && !c.counties.includes(county)) return false;
     if (municipality && !c.municipalities.includes(municipality)) return false;
+    if (selectedAreaId) {
+      const area = AREA_BY_ID[selectedAreaId];
+      if (area && !c.municipalities.some(m => area.municipalities.includes(m))) return false;
+    }
     if (availability === 'available' && c.soldOut) return false;
     if (exactOnly && !isExactCabin(c)) return false;
     if (rareOnly && !isRareCabin(c.id)) return false;
@@ -1605,6 +1669,7 @@ async function applyFilters() {
   const formFiltered = filterCabinsByForm();
   showFilteredCabins(filterCabinsByMapBounds(formFiltered));
   syncListChips();
+  syncAreaChips();
   syncMapToListFilter(formFiltered);
   replaceFilterUrl();
 }
@@ -1855,6 +1920,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
   availableIds = null;
   heartsFilterOn = false;
+  selectedAreaId = '';
   boundsFilterOn = false;
   syncBoundsButton();
   applyFilters();
@@ -1864,6 +1930,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 setupMobileViewToggle();
 setupWeekendRail();
 setupListChips();
+setupAreaChips();
 setupBoundsSearch();
 loadData();
 </script>
