@@ -7,7 +7,7 @@
     "fetch-cabins": "node fetch-cabins.mjs",
     "append-occupancy": "node scripts/append-occupancy-history.mjs",
     "estimate-coords": "node scripts/estimate-cabin-coords.mjs",
-    "test": "node scripts/estimate-cabin-coords.test.mjs",
+    "test": "node scripts/estimate-cabin-coords.test.mjs && node scripts/fetch-lists.test.mjs && node scripts/cabin-refresh-summary.test.mjs",
     "fetch-lists": "node fetch-lists.mjs"
   },
   "devDependencies": {
