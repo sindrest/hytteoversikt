@@ -207,6 +207,33 @@
       z-index: 0;
     }
 
+    .map-bounds-btn {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1100;
+      padding: 8px 14px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid #d5e3d8;
+      border-radius: 999px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.14);
+      color: #2c6e49;
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .map-bounds-btn:hover { background: #fff; border-color: #2c6e49; }
+    .map-bounds-btn.is-on {
+      background: #2c6e49;
+      color: white;
+      border-color: #2c6e49;
+    }
+    .map-bounds-btn.is-on:hover { background: #235c3c; }
+    .map-bounds-btn.is-hidden { display: none !important; }
+
     .weekend-rail {
       position: absolute;
       left: 10px;
@@ -522,6 +549,7 @@
 
       .leaflet-control-attribution { font-size: 10px; }
 
+      .map-bounds-btn { top: 10px; font-size: .78rem; padding: 7px 12px; }
       .weekend-rail { padding: 8px 10px 10px; left: 8px; right: 8px; bottom: 8px; }
       .weekend-rec { width: 148px; }
     }
@@ -633,6 +661,7 @@
 
   <div class="map-pane">
     <div id="map"></div>
+    <button type="button" id="btn-bounds" class="map-bounds-btn is-hidden">Søk i kartutsnitt</button>
     <div id="weekend-rail" class="weekend-rail is-hidden" aria-label="Anbefalt neste helger">
       <div class="weekend-rail-head">Anbefalt neste helger</div>
       <div id="weekend-rail-items" class="weekend-rail-items">
@@ -685,6 +714,8 @@ const LISTED_SPIDERFY_PX = 14;
 const LISTED_SPIDERFY_RADIUS = 28;
 let listedSpiderfy = null;
 let listMapFit = false;
+let boundsFilterOn = false;
+const COUNTRY_ZOOM = 6;
 
 let allCabins = [];
 let cabinLists = [];
@@ -1319,6 +1350,93 @@ function restoreFiltersFromUrl() {
 }
 
 // ──────────────── FILTER ────────────────
+function cabinInMapBounds(cabin, bounds) {
+  if (!cabin.lat || !cabin.lng) return true;
+  return bounds.contains(L.latLng(cabin.lat, cabin.lng));
+}
+
+function filterCabinsByForm() {
+  const search = document.getElementById('f-search').value.toLowerCase().trim();
+  const listFilter = document.getElementById('f-list')?.value || '';
+  const minBeds = parseInt(document.getElementById('f-beds').value) || 0;
+  const maxPrice = parseInt(document.getElementById('f-price').value) || Infinity;
+  const county = document.getElementById('f-county').value;
+  const municipality = document.getElementById('f-municipality').value;
+  const availability = document.getElementById('f-available').value;
+  const exactOnly = document.getElementById('f-coords')?.value === 'exact';
+  const rareOnly = rarityReady && document.getElementById('f-rare')?.value === 'rare';
+  const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
+  const selectedList = listFilter && listFilter !== 'any'
+    ? cabinLists.find(list => list.url === listFilter)
+    : null;
+
+  return allCabins.filter(c => {
+    // Date availability filter
+    if (availableIds !== null && !availableIds.has(c.id)) return false;
+    if (search) {
+      const hay = `${c.name} ${c.description} ${c.stedsnavn || ''} ${c.municipalities.join(' ')} ${c.counties.join(' ')} ${c.provider}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    if (listFilter === 'any' && !listsByCabinId[c.id]) return false;
+    if (selectedList && !(selectedList.cabinIds || []).includes(c.id)) return false;
+    if (minBeds && c.beds < minBeds) return false;
+    if (maxPrice < Infinity && c.priceFrom > maxPrice) return false;
+    if (county && !c.counties.includes(county)) return false;
+    if (municipality && !c.municipalities.includes(municipality)) return false;
+    if (availability === 'available' && c.soldOut) return false;
+    if (exactOnly && !isExactCabin(c)) return false;
+    if (rareOnly && !isRareCabin(c.id)) return false;
+    if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
+    return true;
+  });
+}
+
+function filterCabinsByMapBounds(cabins) {
+  if (!boundsFilterOn) return cabins;
+  const bounds = map.getBounds();
+  return cabins.filter(c => cabinInMapBounds(c, bounds));
+}
+
+function showFilteredCabins(cabins) {
+  updateList(cabins);
+  updateMap(cabins);
+  document.getElementById('cabin-shown').textContent = `${cabins.length} vist`;
+}
+
+function refreshVisibleCabins() {
+  showFilteredCabins(filterCabinsByMapBounds(filterCabinsByForm()));
+}
+
+function syncBoundsButton() {
+  const btn = document.getElementById('btn-bounds');
+  if (!btn) return;
+  const show = map.getZoom() > COUNTRY_ZOOM || boundsFilterOn;
+  btn.classList.toggle('is-hidden', !show);
+  btn.classList.toggle('is-on', boundsFilterOn);
+  btn.setAttribute('aria-pressed', boundsFilterOn ? 'true' : 'false');
+  btn.textContent = boundsFilterOn ? 'Vis hele kartet' : 'Søk i kartutsnitt';
+}
+
+function setBoundsFilterOn(on) {
+  boundsFilterOn = !!on;
+  syncBoundsButton();
+  refreshVisibleCabins();
+}
+
+function setupBoundsSearch() {
+  const btn = document.getElementById('btn-bounds');
+  if (btn) {
+    btn.addEventListener('click', () => setBoundsFilterOn(!boundsFilterOn));
+  }
+  const onViewChange = () => {
+    syncBoundsButton();
+    if (boundsFilterOn) refreshVisibleCabins();
+  };
+  map.on('moveend', onViewChange);
+  map.on('zoomend', onViewChange);
+  syncBoundsButton();
+}
+
 async function applyFilters() {
   const dateFrom = document.getElementById('f-date-from').value;
   const dateTo = document.getElementById('f-date-to').value;
@@ -1349,45 +1467,10 @@ async function applyFilters() {
     }
   }
 
-  const search = document.getElementById('f-search').value.toLowerCase().trim();
-  const listFilter = document.getElementById('f-list')?.value || '';
-  const minBeds = parseInt(document.getElementById('f-beds').value) || 0;
-  const maxPrice = parseInt(document.getElementById('f-price').value) || Infinity;
-  const county = document.getElementById('f-county').value;
-  const municipality = document.getElementById('f-municipality').value;
-  const availability = document.getElementById('f-available').value;
-  const exactOnly = document.getElementById('f-coords')?.value === 'exact';
-  const rareOnly = rarityReady && document.getElementById('f-rare')?.value === 'rare';
-  const activeAmenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
-  const selectedList = listFilter && listFilter !== 'any'
-    ? cabinLists.find(list => list.url === listFilter)
-    : null;
-
-  const filtered = allCabins.filter(c => {
-    // Date availability filter
-    if (availableIds !== null && !availableIds.has(c.id)) return false;
-    if (search) {
-      const hay = `${c.name} ${c.description} ${c.stedsnavn || ''} ${c.municipalities.join(' ')} ${c.counties.join(' ')} ${c.provider}`.toLowerCase();
-      if (!hay.includes(search)) return false;
-    }
-    if (listFilter === 'any' && !listsByCabinId[c.id]) return false;
-    if (selectedList && !(selectedList.cabinIds || []).includes(c.id)) return false;
-    if (minBeds && c.beds < minBeds) return false;
-    if (maxPrice < Infinity && c.priceFrom > maxPrice) return false;
-    if (county && !c.counties.includes(county)) return false;
-    if (municipality && !c.municipalities.includes(municipality)) return false;
-    if (availability === 'available' && c.soldOut) return false;
-    if (exactOnly && !isExactCabin(c)) return false;
-    if (rareOnly && !isRareCabin(c.id)) return false;
-    if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
-    return true;
-  });
-
-  updateList(filtered);
-  updateMap(filtered);
-  document.getElementById('cabin-shown').textContent = `${filtered.length} vist`;
+  const formFiltered = filterCabinsByForm();
+  showFilteredCabins(filterCabinsByMapBounds(formFiltered));
   syncListChips();
-  syncMapToListFilter(filtered);
+  syncMapToListFilter(formFiltered);
   replaceFilterUrl();
 }
 
@@ -1594,6 +1677,8 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
   availableIds = null;
+  boundsFilterOn = false;
+  syncBoundsButton();
   applyFilters();
 });
 
@@ -1601,6 +1686,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 setupMobileViewToggle();
 setupWeekendRail();
 setupListChips();
+setupBoundsSearch();
 loadData();
 </script>
 </body>
