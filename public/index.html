@@ -176,8 +176,24 @@
       box-shadow: 0 0 0 2px rgba(44,110,73,.15);
     }
     .cabin-card.sold-out { opacity: .6; }
+    .cabin-card-head { display: flex; align-items: flex-start; gap: 8px; }
+    .cabin-card-head h3 { flex: 1; min-width: 0; }
     .cabin-card h3 { font-size: .85rem; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cabin-card .cabin-location { font-size: .72rem; color: #888; margin-bottom: 4px; }
+    .cabin-heart {
+      flex-shrink: 0;
+      margin: -2px -4px 0 0;
+      padding: 4px 6px;
+      border: none;
+      background: transparent;
+      color: #b0b8b2;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .cabin-heart:hover { background: #f3f6f3; color: #c0392b; }
+    .cabin-heart.saved { color: #c0392b; }
     .cabin-meta { display: flex; gap: 6px; flex-wrap: wrap; }
     .cabin-tag {
       font-size: .68rem; padding: 1px 7px; border-radius: 12px; background: #e8f4ed; color: #2c6e49;
@@ -329,8 +345,26 @@
     .popup-meta { font-size: .8rem; color: #444; margin-bottom: 3px; }
     .popup-amenities { display: flex; flex-wrap: wrap; gap: 3px; margin: 6px 0; }
     .popup-amenity { font-size: .65rem; padding: 1px 6px; border-radius: 10px; background: #f0f4f0; color: #555; }
-    .popup-link { display: inline-block; margin-top: 6px; padding: 5px 14px; background: #2c6e49; color: white; border-radius: 5px; text-decoration: none; font-size: .8rem; }
+    .popup-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+    .popup-link { display: inline-block; padding: 5px 14px; background: #2c6e49; color: white; border-radius: 5px; text-decoration: none; font-size: .8rem; }
     .popup-link:hover { background: #235c3c; }
+    .popup-heart {
+      display: inline-block;
+      padding: 5px 14px;
+      border: 1px solid #2c6e49;
+      border-radius: 5px;
+      background: white;
+      color: #2c6e49;
+      font: inherit;
+      font-size: .8rem;
+      cursor: pointer;
+    }
+    .popup-heart:hover { background: #f3f8f5; }
+    .popup-heart.saved {
+      border-color: #c0392b;
+      color: #c0392b;
+      background: #fdeaea;
+    }
     .popup-approx-note {
       font-size: .75rem;
       font-weight: 700;
@@ -364,6 +398,15 @@
       font-size: 11px;
       line-height: 1;
       color: #e6b422;
+      text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0,0,0,.35);
+    }
+    .map-pin-heart-badge {
+      position: absolute;
+      top: -9px;
+      left: -8px;
+      font-size: 11px;
+      line-height: 1;
+      color: #c0392b;
       text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0,0,0,.35);
     }
     .map-pin-rare-badge {
@@ -540,6 +583,10 @@
       .cabin-card h3 {
         font-size: .92rem;
         white-space: normal;
+      }
+      .cabin-heart {
+        padding: 6px 8px;
+        font-size: 1.1rem;
       }
       .cabin-card .cabin-location { font-size: .78rem; }
       .cabin-tag {
@@ -725,6 +772,9 @@ let rarityByCabinId = {};
 let rarityReady = false;
 let markerMap = {};
 let availableIds = null;  // null = no date filter, Set = filtered IDs
+const HEARTS_KEY = 'hytteoversikt-hearts';
+let heartedIds = new Set();
+let heartsFilterOn = false;
 const MOBILE_BREAKPOINT = 900;
 const RARITY_MIN_SNAPSHOTS = 4;
 const RARITY_MIN_RATE = 0.5;
@@ -855,6 +905,68 @@ function approxPopupLead(cabin) {
   return '';
 }
 
+function loadHearts() {
+  const known = new Set(allCabins.map(c => c.id));
+  try {
+    const raw = localStorage.getItem(HEARTS_KEY);
+    if (!raw) {
+      heartedIds = new Set();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      heartedIds = new Set();
+      return;
+    }
+    heartedIds = new Set(parsed.filter(id => typeof id === 'string' && known.has(id)));
+  } catch {
+    heartedIds = new Set();
+  }
+}
+
+function persistHearts() {
+  try {
+    localStorage.setItem(HEARTS_KEY, JSON.stringify([...heartedIds]));
+  } catch {
+    // Ignore quota / private-mode failures; the app still works.
+  }
+}
+
+function isHearted(id) {
+  return heartedIds.has(id);
+}
+
+function syncHeartControls(id) {
+  const saved = isHearted(id);
+  document.querySelectorAll(`[data-heart-id="${id}"]`).forEach(el => {
+    el.classList.toggle('saved', saved);
+    el.setAttribute('aria-pressed', saved ? 'true' : 'false');
+    if (el.classList.contains('popup-heart')) el.textContent = saved ? 'Lagret' : 'Lagre';
+    if (el.classList.contains('cabin-heart')) {
+      el.textContent = saved ? '♥' : '♡';
+      el.setAttribute('aria-label', saved ? 'Fjern fra Mine hytter' : 'Lagre hytte');
+    }
+  });
+}
+
+function toggleHeart(id) {
+  if (!allCabins.some(c => c.id === id)) return;
+  if (heartedIds.has(id)) heartedIds.delete(id);
+  else heartedIds.add(id);
+  persistHearts();
+
+  if (heartsFilterOn) {
+    refreshVisibleCabins();
+    return;
+  }
+
+  const cabin = allCabins.find(c => c.id === id);
+  const marker = markerMap[id];
+  if (cabin && marker) marker.setIcon(cabinPinIcon(cabin));
+  updateList(filterCabinsByMapBounds(filterCabinsByForm()));
+  syncHeartControls(id);
+}
+
 async function loadData() {
   try {
     const [res, listsRes, occupancyRes] = await Promise.all([
@@ -865,6 +977,7 @@ async function loadData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     allCabins = Array.isArray(data.cabins) ? data.cabins : [];
+    loadHearts();
     if (listsRes && listsRes.ok) {
       const listsData = await listsRes.json();
       indexCabinLists(listsData.lists);
@@ -1146,8 +1259,19 @@ function populateListChips(lists) {
     btn.title = label;
     chips.appendChild(btn);
   };
-  addChip('any', 'Alle på lister');
-  lists.forEach(list => addChip(list.url, list.title));
+  if (lists.length) {
+    addChip('any', 'Alle på lister');
+    lists.forEach(list => addChip(list.url, list.title));
+  }
+  const hearts = document.createElement('button');
+  hearts.type = 'button';
+  hearts.id = 'hearts-chip';
+  hearts.className = 'list-chip';
+  hearts.textContent = 'Mine hytter';
+  hearts.title = 'Mine hytter';
+  hearts.setAttribute('aria-pressed', heartsFilterOn ? 'true' : 'false');
+  if (heartsFilterOn) hearts.classList.add('active');
+  chips.appendChild(hearts);
 }
 
 function syncListArticleLink() {
@@ -1174,7 +1298,7 @@ function syncListArticleLink() {
 function syncListChips() {
   const value = selectedListFilter();
   document.querySelectorAll('.list-chip').forEach(chip => {
-    const active = chip.dataset.value === value;
+    const active = chip.id === 'hearts-chip' ? heartsFilterOn : chip.dataset.value === value;
     chip.classList.toggle('active', active);
     chip.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
@@ -1215,6 +1339,11 @@ function setupListChips() {
   chips.addEventListener('click', e => {
     const chip = e.target.closest('.list-chip');
     if (!chip) return;
+    if (chip.id === 'hearts-chip') {
+      heartsFilterOn = !chip.classList.contains('active');
+      applyFilters();
+      return;
+    }
     const sel = document.getElementById('f-list');
     if (!sel) return;
     sel.value = chip.classList.contains('active') ? '' : chip.dataset.value;
@@ -1229,7 +1358,9 @@ function populateListFilter() {
   if (row) row.hidden = true;
   if (!sel) return;
   if (!cabinLists.length) {
-    if (browse) browse.hidden = true;
+    sel.innerHTML = '<option value="">Alle hytter</option>';
+    populateListChips([]);
+    if (browse) browse.hidden = false;
     return;
   }
   const lists = listsNewestFirst();
@@ -1386,6 +1517,7 @@ function filterCabinsByForm() {
     if (availability === 'available' && c.soldOut) return false;
     if (exactOnly && !isExactCabin(c)) return false;
     if (rareOnly && !isRareCabin(c.id)) return false;
+    if (heartsFilterOn && !isHearted(c.id)) return false;
     if (activeAmenities.length > 0 && !activeAmenities.every(a => (c.amenities || []).includes(a))) return false;
     return true;
   });
@@ -1481,6 +1613,8 @@ function sidebarPrice(cabin) {
 }
 
 function compareSidebarCabins(a, b) {
+  const hearted = Number(isHearted(b.id)) - Number(isHearted(a.id));
+  if (hearted) return hearted;
   const listed = Number(listsForCabin(b.id).length > 0) - Number(listsForCabin(a.id).length > 0);
   if (listed) return listed;
   const rare = Number(isRareCabin(b.id)) - Number(isRareCabin(a.id));
@@ -1495,7 +1629,9 @@ function compareSidebarCabins(a, b) {
 function updateList(cabins) {
   const el = document.getElementById('cabin-list');
   if (!cabins.length) {
-    el.innerHTML = '<div class="no-results">Ingen hytter matcher filteret.</div>';
+    el.innerHTML = heartsFilterOn
+      ? '<div class="no-results">Ingen lagrede hytter.</div>'
+      : '<div class="no-results">Ingen hytter matcher filteret.</div>';
     return;
   }
   const ranked = cabins.slice().sort(compareSidebarCabins);
@@ -1504,6 +1640,7 @@ function updateList(cabins) {
   el.innerHTML = shown.map(c => {
     const onLists = listsForCabin(c.id);
     const rare = isRareCabin(c.id);
+    const saved = isHearted(c.id);
     const listBadge = onLists.length
       ? `<span class="cabin-tag listed">${onLists.length === 1 ? 'På liste' : `På ${onLists.length} lister`}</span>`
       : '';
@@ -1513,7 +1650,10 @@ function updateList(cabins) {
       : '';
     return `
     <div class="cabin-card${c.soldOut ? ' sold-out' : ''}" data-id="${c.id}" onclick="focusCabin('${c.id}')">
-      <h3>${esc(c.name)}</h3>
+      <div class="cabin-card-head">
+        <h3>${esc(c.name)}</h3>
+        <button type="button" class="cabin-heart${saved ? ' saved' : ''}" data-heart-id="${c.id}" aria-label="${saved ? 'Fjern fra Mine hytter' : 'Lagre hytte'}" aria-pressed="${saved ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleHeart('${c.id}')">${saved ? '♥' : '♡'}</button>
+      </div>
       <div class="cabin-location">${esc(c.municipalities.join(', '))}${c.counties.length ? ' — ' + esc(c.counties.join(', ')) : ''}</div>
       <div class="cabin-meta">
         ${c.beds ? `<span class="cabin-tag beds">${c.beds} senger</span>` : ''}
@@ -1571,6 +1711,33 @@ function spiderfyListedIfNeeded(clicked) {
   });
 }
 
+function cabinPinIcon(c) {
+  const listed = listsForCabin(c.id).length > 0;
+  const rare = isRareCabin(c.id);
+  const approx = isApproxCabin(c);
+  const hearted = isHearted(c.id);
+  const pinClasses = [
+    'map-pin',
+    listed ? 'listed' : '',
+    rare ? 'rare' : '',
+    approx ? 'approx' : '',
+    approx && c.soldOut ? 'sold' : '',
+  ].filter(Boolean).join(' ');
+  const pinStyle = approx ? '' : ` style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}"`;
+  const approxMark = approx ? '<span class="map-pin-approx-mark">ca.</span>' : '';
+  const starMark = listed ? '<span class="map-pin-badge">★</span>' : '';
+  const heartMark = hearted ? '<span class="map-pin-heart-badge">♥</span>' : '';
+  const rareMark = rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : '';
+  const iconSize = approx ? [22, 28] : ((listed || rare || hearted) ? [18, 18] : [12, 12]);
+  const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
+  return L.divIcon({
+    className: (approx || hearted) ? 'cabin-div-icon' : '',
+    html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${starMark}${heartMark}${rareMark}</div>`,
+    iconSize,
+    iconAnchor,
+  });
+}
+
 function updateMap(cabins) {
   unspiderfyListed();
   clusterGroup.clearLayers();
@@ -1584,24 +1751,7 @@ function updateMap(cabins) {
     const listed = onLists.length > 0;
     const rare = isRareCabin(c.id);
     const stats = rarityForCabin(c.id);
-    const approx = isApproxCabin(c);
-    const pinClasses = [
-      'map-pin',
-      listed ? 'listed' : '',
-      rare ? 'rare' : '',
-      approx ? 'approx' : '',
-      approx && c.soldOut ? 'sold' : '',
-    ].filter(Boolean).join(' ');
-    const pinStyle = approx ? '' : ` style="background:${c.soldOut ? '#c0392b' : '#2c6e49'}"`;
-    const approxMark = approx ? '<span class="map-pin-approx-mark">ca.</span>' : '';
-    const iconSize = approx ? [22, 28] : ((listed || rare) ? [18, 18] : [12, 12]);
-    const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
-    const icon = L.divIcon({
-      className: approx ? 'cabin-div-icon' : '',
-      html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${listed ? '<span class="map-pin-badge">★</span>' : ''}${rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : ''}</div>`,
-      iconSize,
-      iconAnchor,
-    });
+    const saved = isHearted(c.id);
 
     const amenityHtml = (c.amenities || []).slice(0, 8).map(a =>
       `<span class="popup-amenity">${AMENITY_LABELS[a] || a}</span>`
@@ -1612,7 +1762,7 @@ function updateMap(cabins) {
     const approxHtml = approxLead ? `<div class="popup-approx-note">${esc(approxLead)}</div>` : '';
 
     const m = L.marker([c.lat, c.lng], {
-      icon,
+      icon: cabinPinIcon(c),
       pane: listed ? 'listedPane' : 'markerPane',
       riseOnHover: listed,
     }).bindPopup(`
@@ -1627,7 +1777,10 @@ function updateMap(cabins) {
         ${rare ? `<div class="popup-meta">Opptatt i ${stats.soldOutCount} av ${stats.snapshotCount} ukentlige sjekk</div>` : ''}
         ${listed ? `<div class="popup-lists"><div class="popup-lists-label">På iNatur-lister</div><ul>${onLists.map(list => `<li>${esc(list.title)}</li>`).join('')}</ul></div>` : ''}
         ${amenityHtml ? `<div class="popup-amenities">${amenityHtml}</div>` : ''}
-        <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
+        <div class="popup-actions">
+          <a class="popup-link" href="${c.url}" target="_blank" rel="noopener">Se på iNatur</a>
+          <button type="button" class="popup-heart${saved ? ' saved' : ''}" data-heart-id="${c.id}" aria-pressed="${saved ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleHeart('${c.id}')">${saved ? 'Lagret' : 'Lagre'}</button>
+        </div>
       `, { maxWidth: 300 });
 
     if (listed) {
@@ -1695,6 +1848,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
   availableIds = null;
+  heartsFilterOn = false;
   boundsFilterOn = false;
   syncBoundsButton();
   applyFilters();
