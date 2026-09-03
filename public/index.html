@@ -522,6 +522,25 @@
       background: #fff4f4;
       border-color: #a05a5a;
     }
+    .map-pin-price {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 2px);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1.2;
+      background: #fff;
+      color: #1f2a24;
+      padding: 1px 5px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.22);
+      pointer-events: none;
+    }
+    .map-pin.approx .map-pin-price {
+      top: calc(100% + 13px);
+    }
 
     .no-results { padding: 20px; text-align: center; color: #888; font-size: .85rem; }
 
@@ -828,6 +847,10 @@ let occupancySnapshots = [];
 let rarityByCabinId = {};
 let rarityReady = false;
 let markerMap = {};
+let lastMappedCabins = [];
+let pinPricesShown = false;
+const PIN_PRICE_ZOOM = 11;
+const PIN_PRICE_MAX_CABINS = 80;
 let hoveredCabinId = null;
 let selectedCabinId = null;
 let availableIds = null;  // null = no date filter, Set = filtered IDs
@@ -1037,7 +1060,7 @@ function toggleHeart(id) {
   const cabin = allCabins.find(c => c.id === id);
   const marker = markerMap[id];
   if (cabin && marker) {
-    marker.setIcon(cabinPinIcon(cabin));
+    marker.setIcon(cabinPinIcon(cabin, pinPricesShown));
     marker.setPopupContent(cabinPopupHtml(cabin));
   }
   updateList(filterCabinsByMapBounds(filterCabinsByForm()));
@@ -1699,6 +1722,14 @@ function setupBoundsSearch() {
   syncBoundsButton();
 }
 
+function setupPinPriceZoom() {
+  map.on('zoomend', () => {
+    const next = shouldShowPinPrices(lastMappedCabins);
+    if (next === pinPricesShown) return;
+    updateMap(lastMappedCabins);
+  });
+}
+
 async function applyFilters() {
   const dateFrom = document.getElementById('f-date-from').value;
   const dateTo = document.getElementById('f-date-to').value;
@@ -2008,11 +2039,26 @@ function spiderfyListedIfNeeded(clicked) {
   });
 }
 
-function cabinPinIcon(c) {
+function countCabinsWithCoords(cabins) {
+  return cabins.reduce((n, c) => n + (c.lat && c.lng ? 1 : 0), 0);
+}
+
+function shouldShowPinPrices(cabins) {
+  return map.getZoom() >= PIN_PRICE_ZOOM || countCabinsWithCoords(cabins) <= PIN_PRICE_MAX_CABINS;
+}
+
+function formatPinPrice(cabin) {
+  const price = Number(cabin.priceFrom);
+  if (!Number.isFinite(price) || price <= 0) return '';
+  return `${Math.round(price)} kr`;
+}
+
+function cabinPinIcon(c, showPrice) {
   const listed = listsForCabin(c.id).length > 0;
   const rare = isRareCabin(c.id);
   const approx = isApproxCabin(c);
   const hearted = isHearted(c.id);
+  const priceText = showPrice ? formatPinPrice(c) : '';
   const pinClasses = [
     'map-pin',
     listed ? 'listed' : '',
@@ -2025,11 +2071,12 @@ function cabinPinIcon(c) {
   const starMark = listed ? '<span class="map-pin-badge">★</span>' : '';
   const heartMark = hearted ? '<span class="map-pin-heart-badge">♥</span>' : '';
   const rareMark = rare ? '<span class="map-pin-rare-badge">Sjelden ledig</span>' : '';
-  const iconSize = approx ? [22, 28] : ((listed || rare || hearted) ? [18, 18] : [12, 12]);
+  const priceMark = priceText ? `<span class="map-pin-price">${esc(priceText)}</span>` : '';
+  const iconSize = approx ? [22, 28] : ((listed || rare || hearted || priceText) ? [18, 18] : [12, 12]);
   const iconAnchor = approx ? [11, 8] : [iconSize[0] / 2, iconSize[1] / 2];
   return L.divIcon({
-    className: (approx || hearted) ? 'cabin-div-icon' : '',
-    html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${starMark}${heartMark}${rareMark}</div>`,
+    className: (approx || hearted || priceText) ? 'cabin-div-icon' : '',
+    html: `<div class="${pinClasses}"${pinStyle}>${approxMark}${starMark}${heartMark}${rareMark}${priceMark}</div>`,
     iconSize,
     iconAnchor,
   });
@@ -2067,6 +2114,8 @@ function cabinPopupHtml(c) {
 }
 
 function updateMap(cabins) {
+  lastMappedCabins = cabins;
+  pinPricesShown = shouldShowPinPrices(cabins);
   unspiderfyListed();
   clusterGroup.clearLayers();
   listedLayer.clearLayers();
@@ -2078,7 +2127,7 @@ function updateMap(cabins) {
     const listed = listsForCabin(c.id).length > 0;
 
     const m = L.marker([c.lat, c.lng], {
-      icon: cabinPinIcon(c),
+      icon: cabinPinIcon(c, pinPricesShown),
       pane: listed ? 'listedPane' : 'markerPane',
       riseOnHover: listed,
     }).bindPopup(cabinPopupHtml(c), { maxWidth: 300 });
@@ -2167,6 +2216,7 @@ setupWeekendRail();
 setupListChips();
 setupAreaChips();
 setupBoundsSearch();
+setupPinPriceZoom();
 setupCabinHoverSync();
 setupCabinPeek();
 loadData();
