@@ -2369,6 +2369,15 @@ function summerDistancePopupHtml(c) {
   return `<div class="popup-meta">${esc(text)}</div>`;
 }
 
+function winterDistancePopupHtml(c) {
+  const dist = Number(c.winterDistanceKm);
+  if (!Number.isFinite(dist)) return '';
+  const text = dist === 0
+    ? 'Bilvei helt frem (vinter)'
+    : `${String(dist).replace('.', ',')} km fra vei (vinter)`;
+  return `<div class="popup-meta">${esc(text)}</div>`;
+}
+
 function cabinPopupHtml(c) {
   const onLists = listsForCabin(c.id);
   const listed = onLists.length > 0;
@@ -2389,6 +2398,7 @@ function cabinPopupHtml(c) {
         ${c.beds ? `<div class="popup-meta">Senger: ${c.beds}</div>` : ''}
         ${c.priceFrom ? `<div class="popup-meta">Fra ${c.priceFrom} kr/natt</div>` : ''}
         ${summerDistancePopupHtml(c)}
+        ${winterDistancePopupHtml(c)}
         <div class="popup-meta">${esc(c.municipalities.join(', '))} — ${esc(c.counties.join(', '))}</div>
         ${c.provider ? `<div class="popup-meta" style="color:#888;font-size:.75rem">Tilbyder: ${esc(c.provider)}</div>` : ''}
         ${rare ? `<div class="popup-meta">Opptatt i ${stats.soldOutCount} av ${stats.snapshotCount} ukentlige sjekk</div>` : ''}
