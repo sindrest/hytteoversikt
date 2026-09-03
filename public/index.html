@@ -1785,6 +1785,24 @@ function setSelectValue(el, value) {
   if ([...el.options].some(opt => opt.value === value)) el.value = value;
 }
 
+function formatMapBbox(bounds) {
+  if (!bounds) return null;
+  const parts = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+  if (!parts.every(Number.isFinite)) return null;
+  return parts.map(n => n.toFixed(5)).join(',');
+}
+
+function parseBboxParam(raw) {
+  if (raw == null || raw === '') return null;
+  const tokens = String(raw).split(',');
+  if (tokens.length !== 4) return null;
+  const parts = tokens.map(t => t.trim());
+  if (parts.some(p => p === '')) return null;
+  const nums = parts.map(Number);
+  if (!nums.every(Number.isFinite)) return null;
+  return nums;
+}
+
 function serializeFilters() {
   const params = new URLSearchParams();
   const dateFrom = document.getElementById('f-date-from').value;
@@ -1816,6 +1834,10 @@ function serializeFilters() {
   if (vinter !== '') params.set('vinter', vinter);
   if (selectedAreaId) params.set('område', selectedAreaId);
   amenities.forEach(key => params.append('amenity', key));
+  if (boundsFilterOn) {
+    const bbox = formatMapBbox(map.getBounds());
+    if (bbox) params.set('bbox', bbox);
+  }
   return params;
 }
 
@@ -1861,6 +1883,13 @@ function restoreFiltersFromUrl() {
     document.querySelectorAll('.amenity-chip').forEach(chip => {
       if (wantedAmenities.has(chip.dataset.amenity)) chip.classList.add('active');
     });
+  }
+
+  const bbox = parseBboxParam(params.get('bbox'));
+  if (bbox) {
+    const [west, south, east, north] = bbox;
+    map.fitBounds([[south, west], [north, east]]);
+    setBoundsFilterOn(true);
   }
 }
 
@@ -1953,6 +1982,7 @@ function setBoundsFilterOn(on) {
   boundsFilterOn = !!on;
   syncBoundsButton();
   refreshVisibleCabins();
+  replaceFilterUrl();
 }
 
 function setupBoundsSearch() {
@@ -1962,7 +1992,10 @@ function setupBoundsSearch() {
   }
   const onViewChange = () => {
     syncBoundsButton();
-    if (boundsFilterOn) refreshVisibleCabins();
+    if (boundsFilterOn) {
+      refreshVisibleCabins();
+      replaceFilterUrl();
+    }
   };
   map.on('moveend', onViewChange);
   map.on('zoomend', onViewChange);
