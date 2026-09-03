@@ -2207,12 +2207,16 @@ function showCabinPeek(id) {
     ? `<img class="cabin-peek-img" src="${cabin.image}/w=300,h=180,fit=cover,format=auto" alt="" onerror="this.style.display='none'" />`
     : '';
   const kommune = (cabin.municipalities || []).join(', ');
+  const saved = isHearted(cabin.id);
   peek.innerHTML = `
     ${imgHtml}
     <div class="cabin-peek-body">
       <div class="cabin-peek-name">${esc(cabin.name)}</div>
       ${kommune ? `<div class="cabin-peek-kommune">${esc(kommune)}</div>` : ''}
-      <a class="popup-link" href="${esc(cabin.url)}" target="_blank" rel="noopener">Se på iNatur</a>
+      <div class="popup-actions">
+        <a class="popup-link" href="${esc(cabin.url)}" target="_blank" rel="noopener">Se på iNatur</a>
+        <button type="button" class="popup-heart${saved ? ' saved' : ''}" data-heart-id="${cabin.id}" aria-pressed="${saved ? 'true' : 'false'}" onclick="event.stopPropagation(); toggleHeart('${cabin.id}')">${saved ? 'Lagret' : 'Lagre'}</button>
+      </div>
     </div>
   `;
   peek.classList.remove('is-hidden');
