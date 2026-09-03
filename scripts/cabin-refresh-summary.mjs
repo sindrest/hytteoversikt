@@ -5,6 +5,10 @@
 //     --prev /tmp/cabins-data.prev.json \
 //     --next public/cabins-data.json \
 //     --occupancy public/occupancy-history.json \
+//     --lists-prev /tmp/lists-data.prev.json \
+//     --lists-next public/lists-data.json \
+//     --lists-unmatched public/lists-unmatched.json \
+//     --lists-status ok \
 //     --out /tmp/cabin-refresh-pr-body.md
 //
 // If only fetchedAt changed, restores --next from --prev so the Action
@@ -91,13 +95,65 @@ function occupancyStats(history) {
   };
 }
 
-function buildBody(prev, next, occupancy) {
+export function listRefreshStats(prevLists, nextLists, unmatched, status) {
+  const prevUrls = (prevLists?.lists || []).map((list) => list.url).filter(Boolean);
+  const nextUrls = (nextLists?.lists || []).map((list) => list.url).filter(Boolean);
+  const prevSet = new Set(prevUrls);
+  const nextSet = new Set(nextUrls);
+  return {
+    count: nextUrls.length,
+    prevCount: prevUrls.length,
+    newUrls: nextUrls.filter((url) => !prevSet.has(url)),
+    droppedUrls: prevUrls.filter((url) => !nextSet.has(url)),
+    notFoundUrls: unmatched?.skippedUrls || [],
+    status: status || 'ok',
+  };
+}
+
+function bulletUrls(urls) {
+  return urls.map((url) => `- ${url}`).join('\n');
+}
+
+function listsSection(listsInfo) {
+  if (!listsInfo) return '';
+
+  if (listsInfo.status === 'failed') {
+    return `
+## Magazine lists
+
+List ingest failed (tips.inatur.no POW/timeout). Existing \`lists-data.json\` kept (**${listsInfo.prevCount}** lists). The cabin dump is unchanged by this failure.
+`;
+  }
+
+  let section = `
+## Magazine lists
+
+| lists | new URLs | 404s | dropped |
+|---|---|---|---|
+| ${listsInfo.count} | ${listsInfo.newUrls.length} | ${listsInfo.notFoundUrls.length} | ${listsInfo.droppedUrls.length} |
+
+Seeds stay included. Newly discovered articles are lists only with ≥3 matched dump cabin IDs. A one-off 404 keeps last week's entry.
+`;
+
+  if (listsInfo.newUrls.length) {
+    section += `\nNew URLs:\n\n${bulletUrls(listsInfo.newUrls)}\n`;
+  }
+  if (listsInfo.notFoundUrls.length) {
+    section += `\n404s (entry kept if already known):\n\n${bulletUrls(listsInfo.notFoundUrls)}\n`;
+  }
+  if (listsInfo.droppedUrls.length) {
+    section += `\nDropped:\n\n${bulletUrls(listsInfo.droppedUrls)}\n`;
+  }
+  return section;
+}
+
+export function buildBody(prev, next, occupancy, listsInfo) {
   const a = stats(prev);
   const b = stats(next);
   const estimated = estimatedCabins(next);
   const occ = occupancyStats(occupancy);
 
-  let body = `Refresh the static iNatur cabin dump in \`public/cabins-data.json\` and append one occupancy snapshot to \`public/occupancy-history.json\`. Opened automatically by the weekday refresh workflow (no push to \`main\`).
+  let body = `Refresh the static iNatur cabin dump in \`public/cabins-data.json\`, append one occupancy snapshot to \`public/occupancy-history.json\`, and refresh magazine lists in \`public/lists-data.json\`. Opened automatically by the Monday refresh workflow (no push to \`main\`).
 
 ## Before / after
 
@@ -130,7 +186,9 @@ Pins without iNatur/ArcGIS geometry are municipality (then county) centroids of 
     body += `\n<details>\n<summary>${estimated.length} cabins without exact coordinates</summary>\n\n${rows}\n</details>\n`;
   }
 
-  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay, plus municipality/county centroid estimates) and \`npm run append-occupancy\`. The PR includes \`public/cabins-data.json\` and \`public/occupancy-history.json\`.\n`;
+  body += listsSection(listsInfo);
+
+  body += `\n## Source\n\nGenerated with \`npm run fetch-cabins\` (iNatur search + ArcGIS \`Open-Inatur\` overlay, plus municipality/county centroid estimates), \`npm run append-occupancy\`, and \`npm run fetch-lists\`. The PR includes \`public/cabins-data.json\`, \`public/occupancy-history.json\`, and \`public/lists-data.json\`.\n`;
   return body;
 }
 
@@ -154,6 +212,23 @@ function main() {
   if (args.occupancy && !Array.isArray(occupancy.snapshots)) {
     throw new Error(`${args.occupancy} is not a valid occupancy-history.json`);
   }
+
+  let listsInfo = null;
+  if (args['lists-prev'] || args['lists-next']) {
+    if (!args['lists-prev'] || !args['lists-next']) {
+      throw new Error('Required together: --lists-prev <path> --lists-next <path>');
+    }
+    const prevLists = JSON.parse(readFileSync(args['lists-prev'], 'utf8'));
+    const nextLists = JSON.parse(readFileSync(args['lists-next'], 'utf8'));
+    if (!Array.isArray(prevLists?.lists) || !Array.isArray(nextLists?.lists)) {
+      throw new Error('lists-prev/lists-next must be valid lists-data.json dumps');
+    }
+    const unmatched = args['lists-unmatched']
+      ? JSON.parse(readFileSync(args['lists-unmatched'], 'utf8'))
+      : { skippedUrls: [] };
+    listsInfo = listRefreshStats(prevLists, nextLists, unmatched, args['lists-status']);
+  }
+
   const prevStats = stats(prev);
   const nextStats = stats(next);
 
@@ -166,7 +241,7 @@ function main() {
     );
   }
 
-  writeFileSync(args.out, buildBody(prev, next, occupancy));
+  writeFileSync(args.out, buildBody(prev, next, occupancy, listsInfo));
 
   const material = isMaterialChange(prev, next);
   if (!material) {
@@ -188,4 +263,7 @@ function main() {
   writeGithubOutput('missing_coords', String(nextStats.missing));
 }
 
-main();
+const isMain = process.argv[1] && process.argv[1].endsWith('cabin-refresh-summary.mjs');
+if (isMain) {
+  main();
+}

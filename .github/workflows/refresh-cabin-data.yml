@@ -1,6 +1,9 @@
 # Weekly Monday refresh of public/cabins-data.json from iNatur,
-# plus one occupancy snapshot in public/occupancy-history.json.
-# Fetches on a schedule, then opens a PR — never pushes the dump to main.
+# one occupancy snapshot in public/occupancy-history.json, and magazine
+# lists in public/lists-data.json. Fetches on a schedule, then opens a
+# PR — never pushes the dump to main.
+# fetch-lists runs after fetch-cabins. A POW/timeout there must not fail
+# the cabin dump; the existing lists-data.json is kept.
 #
 # Schedule is UTC. 07:00 UTC Mondays is 08:00 Europe/Oslo in winter (CET)
 # and 09:00 Europe/Oslo in summer (CEST).
@@ -39,6 +42,19 @@ jobs:
       - name: Fetch cabins from iNatur
         run: npm run fetch-cabins
 
+      - name: Fetch magazine lists
+        run: |
+          cp public/lists-data.json /tmp/lists-data.prev.json
+          cp public/lists-unmatched.json /tmp/lists-unmatched.prev.json
+          if npm run fetch-lists; then
+            echo "LISTS_INGEST_STATUS=ok" >> "$GITHUB_ENV"
+          else
+            echo "fetch-lists failed (POW/timeout?); keeping existing lists-data.json" >&2
+            echo "LISTS_INGEST_STATUS=failed" >> "$GITHUB_ENV"
+            cp /tmp/lists-data.prev.json public/lists-data.json
+            cp /tmp/lists-unmatched.prev.json public/lists-unmatched.json
+          fi
+
       - name: Append occupancy snapshot
         run: npm run append-occupancy
 
@@ -49,6 +65,10 @@ jobs:
             --prev /tmp/cabins-data.prev.json \
             --next public/cabins-data.json \
             --occupancy public/occupancy-history.json \
+            --lists-prev /tmp/lists-data.prev.json \
+            --lists-next public/lists-data.json \
+            --lists-unmatched public/lists-unmatched.json \
+            --lists-status "${LISTS_INGEST_STATUS:-ok}" \
             --out /tmp/cabin-refresh-pr-body.md
 
       - name: Create pull request
@@ -64,3 +84,5 @@ jobs:
           add-paths: |
             public/cabins-data.json
             public/occupancy-history.json
+            public/lists-data.json
+            public/lists-unmatched.json
