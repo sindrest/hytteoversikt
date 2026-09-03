@@ -580,6 +580,17 @@
     .marker-cluster-medium div { background-color: rgba(44,110,73,.7); color: white; }
     .marker-cluster-large { background-color: rgba(44,110,73,.5); }
     .marker-cluster-large div { background-color: rgba(44,110,73,.8); color: white; }
+    .marker-cluster-has-star { overflow: visible; }
+    .marker-cluster-star {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      font-size: 12px;
+      line-height: 1;
+      color: #e6b422;
+      text-shadow: 0 0 2px #fff, 0 1px 1px rgba(0,0,0,.35);
+      pointer-events: none;
+    }
 
     /* Listed gold stars sit above numbered clusters at every zoom. */
     .leaflet-listed-pane { z-index: 620; }
@@ -859,11 +870,35 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18
 }).addTo(map);
 
+function clusterChildNeedsStar(marker) {
+  const id = marker._cabinId;
+  if (!id) return false;
+  return listsForCabin(id).length > 0 || isRareCabin(id) || isHearted(id);
+}
+
+function createClusterIcon(cluster) {
+  const childCount = cluster.getChildCount();
+  let sizeClass = 'small';
+  if (childCount >= 100) sizeClass = 'large';
+  else if (childCount >= 10) sizeClass = 'medium';
+
+  const needsStar = cluster.getAllChildMarkers().some(clusterChildNeedsStar);
+  const html = needsStar
+    ? `<div><span>${childCount}</span></div><span class="marker-cluster-star">★</span>`
+    : `<div><span>${childCount}</span></div>`;
+  return L.divIcon({
+    html,
+    className: `marker-cluster marker-cluster-${sizeClass}${needsStar ? ' marker-cluster-has-star' : ''}`,
+    iconSize: [40, 40],
+  });
+}
+
 const clusterGroup = L.markerClusterGroup({
   maxClusterRadius: 50,
   spiderfyOnMaxZoom: true,
   showCoverageOnHover: false,
   disableClusteringAtZoom: 13,
+  iconCreateFunction: createClusterIcon,
 });
 map.addLayer(clusterGroup);
 
@@ -1103,6 +1138,7 @@ function toggleHeart(id) {
   if (cabin && marker) {
     marker.setIcon(cabinPinIcon(cabin, pinPricesShown));
     marker.setPopupContent(cabinPopupHtml(cabin));
+    clusterGroup.refreshClusters(marker);
   }
   updateList(filterCabinsByMapBounds(filterCabinsByForm()));
   syncHeartControls(id);
