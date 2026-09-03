@@ -111,6 +111,52 @@
     }
     .amenity-chip.active { background: #2c6e49; color: white; border-color: #2c6e49; }
 
+    .list-browse { margin-bottom: 12px; }
+    .list-browse[hidden] { display: none !important; }
+    .list-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 0 4px;
+      scrollbar-width: thin;
+    }
+    .list-chip {
+      flex: 0 0 auto;
+      max-width: 200px;
+      font: inherit;
+      font-size: .72rem;
+      line-height: 1.25;
+      padding: 5px 10px;
+      border-radius: 14px;
+      border: 1px solid #c5d4c8;
+      background: white;
+      color: #3f4f44;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .list-chip.active {
+      background: #2c6e49;
+      color: white;
+      border-color: #2c6e49;
+    }
+    .list-article {
+      font-size: .74rem;
+      color: #555;
+      line-height: 1.35;
+      margin-top: 6px;
+    }
+    .list-article[hidden] { display: none !important; }
+    .list-article a {
+      color: #2c6e49;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .list-article a:hover { text-decoration: underline; }
+
     #cabin-list {
       flex: 1;
       overflow-y: auto;
@@ -451,6 +497,12 @@
         font-size: .76rem;
         padding: 4px 10px;
       }
+      .list-chip {
+        font-size: .76rem;
+        padding: 6px 12px;
+        max-width: 220px;
+      }
+      .list-article { font-size: .76rem; }
 
       #cabin-list { padding: 10px; }
       .cabin-card {
@@ -501,6 +553,10 @@
   <div id="sidebar">
 
     <div id="filters">
+      <div id="list-browse" class="list-browse" hidden>
+        <div id="list-chips" class="list-chips"></div>
+        <div id="list-article" class="list-article" hidden></div>
+      </div>
       <h2>Filtrer hytter</h2>
       <div class="filter-row">
         <label>Ledig fra</label>
@@ -628,6 +684,7 @@ map.addLayer(listedLayer);
 const LISTED_SPIDERFY_PX = 14;
 const LISTED_SPIDERFY_RADIUS = 28;
 let listedSpiderfy = null;
+let listMapFit = false;
 
 let allCabins = [];
 let cabinLists = [];
@@ -1021,20 +1078,137 @@ function populateRarityFilter() {
   row.hidden = false;
 }
 
+function listsNewestFirst() {
+  return cabinLists
+    .map((list, index) => ({ list, index }))
+    .sort((a, b) => {
+      const aAt = a.list.publishedAt;
+      const bAt = b.list.publishedAt;
+      if (aAt && bAt && aAt !== bAt) return aAt < bAt ? 1 : -1;
+      if (aAt && !bAt) return -1;
+      if (!aAt && bAt) return 1;
+      return a.index - b.index;
+    })
+    .map(entry => entry.list);
+}
+
+function selectedListFilter() {
+  return document.getElementById('f-list')?.value || '';
+}
+
+function selectedCabinList() {
+  const listFilter = selectedListFilter();
+  if (!listFilter || listFilter === 'any') return null;
+  return cabinLists.find(list => list.url === listFilter) || null;
+}
+
+function populateListChips(lists) {
+  const chips = document.getElementById('list-chips');
+  if (!chips) return;
+  chips.replaceChildren();
+  const addChip = (value, label) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'list-chip';
+    btn.dataset.value = value;
+    btn.textContent = label;
+    btn.title = label;
+    chips.appendChild(btn);
+  };
+  addChip('any', 'Alle på lister');
+  lists.forEach(list => addChip(list.url, list.title));
+}
+
+function syncListArticleLink() {
+  const el = document.getElementById('list-article');
+  if (!el) return;
+  const list = selectedCabinList();
+  if (!list) {
+    el.hidden = true;
+    el.replaceChildren();
+    return;
+  }
+  const title = document.createElement('span');
+  title.textContent = list.title;
+  const sep = document.createTextNode(' · ');
+  const link = document.createElement('a');
+  link.href = list.url;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = 'Les på iNatur';
+  el.replaceChildren(title, sep, link);
+  el.hidden = false;
+}
+
+function syncListChips() {
+  const value = selectedListFilter();
+  document.querySelectorAll('.list-chip').forEach(chip => {
+    const active = chip.dataset.value === value;
+    chip.classList.toggle('active', active);
+    chip.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  syncListArticleLink();
+}
+
+function weekendRailPadding() {
+  const rail = document.getElementById('weekend-rail');
+  if (rail && !rail.classList.contains('is-hidden') && rail.offsetHeight) {
+    return rail.offsetHeight + 16;
+  }
+  return 180;
+}
+
+function syncMapToListFilter(cabins) {
+  const listFilter = selectedListFilter();
+  const specific = listFilter && listFilter !== 'any';
+  if (specific) {
+    const pts = cabins.filter(c => c.lat && c.lng).map(c => [c.lat, c.lng]);
+    if (!pts.length) return;
+    map.fitBounds(L.latLngBounds(pts), {
+      paddingTopLeft: [24, 24],
+      paddingBottomRight: [24, weekendRailPadding()],
+      maxZoom: 12,
+    });
+    listMapFit = true;
+    return;
+  }
+  if (listMapFit) {
+    map.setView([64.5, 14.0], 5);
+    listMapFit = false;
+  }
+}
+
+function setupListChips() {
+  const chips = document.getElementById('list-chips');
+  if (!chips) return;
+  chips.addEventListener('click', e => {
+    const chip = e.target.closest('.list-chip');
+    if (!chip) return;
+    const sel = document.getElementById('f-list');
+    if (!sel) return;
+    sel.value = chip.classList.contains('active') ? '' : chip.dataset.value;
+    applyFilters();
+  });
+}
+
 function populateListFilter() {
   const row = document.getElementById('list-filter-row');
   const sel = document.getElementById('f-list');
-  if (!row || !sel) return;
+  const browse = document.getElementById('list-browse');
+  if (row) row.hidden = true;
+  if (!sel) return;
   if (!cabinLists.length) {
-    row.hidden = true;
+    if (browse) browse.hidden = true;
     return;
   }
+  const lists = listsNewestFirst();
   sel.innerHTML = [
     '<option value="">Alle hytter</option>',
     '<option value="any">Alle på lister</option>',
-    ...cabinLists.map(list => `<option value="${esc(list.url)}">${esc(list.title)}</option>`),
+    ...lists.map(list => `<option value="${esc(list.url)}">${esc(list.title)}</option>`),
   ].join('');
-  row.hidden = false;
+  populateListChips(lists);
+  if (browse) browse.hidden = false;
 }
 
 function populateFilters() {
@@ -1212,6 +1386,8 @@ async function applyFilters() {
   updateList(filtered);
   updateMap(filtered);
   document.getElementById('cabin-shown').textContent = `${filtered.length} vist`;
+  syncListChips();
+  syncMapToListFilter(filtered);
   replaceFilterUrl();
 }
 
@@ -1424,6 +1600,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 // ──────────────── INIT ────────────────
 setupMobileViewToggle();
 setupWeekendRail();
+setupListChips();
 loadData();
 </script>
 </body>
