@@ -104,12 +104,13 @@
     #btn-reset:hover { background: #f5f5f5; }
 
     .amenity-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-    .amenity-chip {
+    #helg-filters { margin: 2px 0 8px; }
+    .amenity-chip, .helg-chip {
       font-size: .7rem; padding: 2px 8px; border-radius: 12px;
       border: 1px solid #ccc; cursor: pointer; background: white; color: #555;
       user-select: none; transition: all .15s;
     }
-    .amenity-chip.active { background: #2c6e49; color: white; border-color: #2c6e49; }
+    .amenity-chip.active, .helg-chip.active { background: #2c6e49; color: white; border-color: #2c6e49; }
 
     .list-browse { margin-bottom: 12px; }
     .list-browse[hidden] { display: none !important; }
@@ -636,7 +637,7 @@
         min-height: 40px;
       }
       .amenity-filters { gap: 6px; }
-      .amenity-chip {
+      .amenity-chip, .helg-chip {
         font-size: .76rem;
         padding: 4px 10px;
       }
@@ -716,6 +717,9 @@
       <div class="filter-row">
         <label>Ledig til</label>
         <input type="date" id="f-date-to" />
+      </div>
+      <div class="amenity-filters" id="helg-filters">
+        <button type="button" id="f-helg" class="helg-chip" aria-pressed="false">Ledig en helg (12 uker)</button>
       </div>
       <div id="date-status" style="display:none; font-size:.72rem; padding:4px 0 4px 98px; color:#2c6e49;"></div>
       <div class="filter-row">
@@ -1195,6 +1199,58 @@ async function fetchAvailableCabinIds(fromDate, toDate) {
   return pending;
 }
 
+async function fetchFlexibleWeekendCabinIds() {
+  const weekends = nextWeekendRanges(WEEKEND_COUNT);
+  const union = new Set();
+  let succeeded = 0;
+  for (let i = 0; i < weekends.length; i += WEEKEND_BATCH) {
+    const batch = weekends.slice(i, i + WEEKEND_BATCH);
+    const results = await Promise.all(batch.map(async weekend => {
+      try {
+        const ids = await fetchAvailableCabinIds(weekend.from, weekend.to);
+        return ids;
+      } catch (err) {
+        console.warn(`Hoppet over helg ${weekend.from}–${weekend.to}:`, err);
+        return null;
+      }
+    }));
+    for (const ids of results) {
+      if (!ids) continue;
+      succeeded++;
+      for (const id of ids) union.add(id);
+    }
+  }
+  return { ids: union, succeeded };
+}
+
+function weekendFlexChip() {
+  return document.getElementById('f-helg');
+}
+
+function isWeekendFlexOn() {
+  return !!weekendFlexChip()?.classList.contains('active');
+}
+
+function setWeekendFlexOn(on) {
+  const chip = weekendFlexChip();
+  if (!chip) return;
+  chip.classList.toggle('active', !!on);
+  chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function hasSpecificDateRange(dateFrom, dateTo) {
+  return !!(dateFrom && dateTo && new Date(dateTo) > new Date(dateFrom));
+}
+
+function setupWeekendFlexChip() {
+  const chip = weekendFlexChip();
+  if (!chip) return;
+  chip.addEventListener('click', () => {
+    setWeekendFlexOn(!isWeekendFlexOn());
+    applyFilters();
+  });
+}
+
 // ──────────────── WEEKEND RECOMMENDATIONS ────────────────
 const OSLO_TZ = 'Europe/Oslo';
 const NO_MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'];
@@ -1615,6 +1671,7 @@ function serializeFilters() {
 
   if (dateFrom) params.set('fra', dateFrom);
   if (dateTo) params.set('til', dateTo);
+  if (isWeekendFlexOn() && !dateFrom && !dateTo) params.set('helg', '12');
   if (county) params.set('fylke', county);
   if (municipality) params.set('kommune', municipality);
   if (listFilter) params.set('liste', listFilter);
@@ -1643,6 +1700,7 @@ function restoreFiltersFromUrl() {
 
   if (params.has('fra')) document.getElementById('f-date-from').value = params.get('fra');
   if (params.has('til')) document.getElementById('f-date-to').value = params.get('til');
+  if (params.get('helg') === '12') setWeekendFlexOn(true);
 
   const countySel = document.getElementById('f-county');
   const fylke = params.get('fylke');
@@ -1784,8 +1842,9 @@ async function applyFilters() {
   const dateTo = document.getElementById('f-date-to').value;
   const dateStatus = document.getElementById('date-status');
 
-  // Live availability check if dates are set
-  if (dateFrom && dateTo && new Date(dateTo) > new Date(dateFrom)) {
+  // Specific fra/til wins over the flexible-weekend chip
+  if (hasSpecificDateRange(dateFrom, dateTo)) {
+    setWeekendFlexOn(false);
     dateStatus.style.display = 'block';
     dateStatus.className = 'loading';
     dateStatus.textContent = 'Sjekker ledighet mot iNatur...';
@@ -1799,6 +1858,32 @@ async function applyFilters() {
       dateStatus.textContent = `Feil ved sjekk av ledighet: ${e.message}`;
       dateStatus.style.color = '#c00';
       availableIds = null;
+    }
+  } else if (isWeekendFlexOn()) {
+    dateStatus.style.display = 'block';
+    dateStatus.className = 'loading';
+    dateStatus.style.color = '#2c6e49';
+    dateStatus.textContent = 'Sjekker 12 helger…';
+    try {
+      const { ids, succeeded } = await fetchFlexibleWeekendCabinIds();
+      if (!succeeded) {
+        setWeekendFlexOn(false);
+        availableIds = null;
+        dateStatus.className = '';
+        dateStatus.textContent = 'Klarte ikke å sjekke helger';
+        dateStatus.style.color = '#c00';
+      } else {
+        availableIds = ids;
+        dateStatus.className = '';
+        dateStatus.textContent = `${ids.size} hytter ledige en helg`;
+        dateStatus.style.color = '#2c6e49';
+      }
+    } catch (e) {
+      setWeekendFlexOn(false);
+      availableIds = null;
+      dateStatus.className = '';
+      dateStatus.textContent = 'Klarte ikke å sjekke helger';
+      dateStatus.style.color = '#c00';
     }
   } else {
     availableIds = null;
@@ -2253,6 +2338,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   document.getElementById('date-status').style.display = 'none';
   document.querySelectorAll('.amenity-chip.active').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.weekend-rec.active').forEach(el => el.classList.remove('active'));
+  setWeekendFlexOn(false);
   availableIds = null;
   heartsFilterOn = false;
   selectedAreaId = '';
@@ -2264,6 +2350,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 // ──────────────── INIT ────────────────
 setupMobileViewToggle();
 setupWeekendRail();
+setupWeekendFlexChip();
 setupListChips();
 setupAreaChips();
 setupBoundsSearch();
