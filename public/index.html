@@ -786,6 +786,7 @@ async function loadData() {
     }
     document.getElementById('cabin-count').textContent = `${allCabins.length} hytter`;
     populateFilters();
+    restoreFiltersFromUrl();
     applyFilters();
     document.getElementById('loading').style.display = 'none';
     refreshMapSize();
@@ -1069,6 +1070,80 @@ document.getElementById('f-county').addEventListener('change', function() {
   updateMunicipalityFilter(this.value);
 });
 
+// ──────────────── FILTER URL ────────────────
+function setSelectValue(el, value) {
+  if (!el || value == null || value === '') return;
+  if ([...el.options].some(opt => opt.value === value)) el.value = value;
+}
+
+function serializeFilters() {
+  const params = new URLSearchParams();
+  const dateFrom = document.getElementById('f-date-from').value;
+  const dateTo = document.getElementById('f-date-to').value;
+  const county = document.getElementById('f-county').value;
+  const municipality = document.getElementById('f-municipality').value;
+  const listFilter = document.getElementById('f-list')?.value || '';
+  const search = document.getElementById('f-search').value.trim();
+  const beds = document.getElementById('f-beds').value;
+  const price = document.getElementById('f-price').value;
+  const availability = document.getElementById('f-available').value;
+  const exactOnly = document.getElementById('f-coords')?.value === 'exact';
+  const amenities = [...document.querySelectorAll('.amenity-chip.active')].map(el => el.dataset.amenity);
+
+  if (dateFrom) params.set('fra', dateFrom);
+  if (dateTo) params.set('til', dateTo);
+  if (county) params.set('fylke', county);
+  if (municipality) params.set('kommune', municipality);
+  if (listFilter) params.set('liste', listFilter);
+  if (search) params.set('q', search);
+  if (beds !== '') params.set('senger', beds);
+  if (price !== '') params.set('pris', price);
+  if (availability && availability !== 'available') params.set('ledige', availability);
+  if (exactOnly) params.set('ca', '1');
+  amenities.forEach(key => params.append('amenity', key));
+  return params;
+}
+
+function replaceFilterUrl() {
+  const query = serializeFilters().toString();
+  const next = query
+    ? `${location.pathname}?${query}${location.hash}`
+    : `${location.pathname}${location.hash}`;
+  history.replaceState(null, '', next);
+}
+
+function restoreFiltersFromUrl() {
+  const params = new URLSearchParams(location.search);
+  if (![...params.keys()].length) return;
+
+  if (params.has('fra')) document.getElementById('f-date-from').value = params.get('fra');
+  if (params.has('til')) document.getElementById('f-date-to').value = params.get('til');
+
+  const countySel = document.getElementById('f-county');
+  const fylke = params.get('fylke');
+  const kommune = params.get('kommune');
+  if (fylke) setSelectValue(countySel, fylke);
+  if (fylke || kommune) updateMunicipalityFilter(countySel.value);
+  if (kommune) setSelectValue(document.getElementById('f-municipality'), kommune);
+
+  setSelectValue(document.getElementById('f-list'), params.get('liste'));
+  if (params.has('q')) document.getElementById('f-search').value = params.get('q');
+  if (params.has('senger')) document.getElementById('f-beds').value = params.get('senger');
+  if (params.has('pris')) document.getElementById('f-price').value = params.get('pris');
+  setSelectValue(document.getElementById('f-available'), params.get('ledige'));
+  if (params.get('ca') === '1') {
+    const coordsSelect = document.getElementById('f-coords');
+    if (coordsSelect) coordsSelect.value = 'exact';
+  }
+
+  const wantedAmenities = new Set(params.getAll('amenity'));
+  if (wantedAmenities.size) {
+    document.querySelectorAll('.amenity-chip').forEach(chip => {
+      if (wantedAmenities.has(chip.dataset.amenity)) chip.classList.add('active');
+    });
+  }
+}
+
 // ──────────────── FILTER ────────────────
 async function applyFilters() {
   const dateFrom = document.getElementById('f-date-from').value;
@@ -1137,6 +1212,7 @@ async function applyFilters() {
   updateList(filtered);
   updateMap(filtered);
   document.getElementById('cabin-shown').textContent = `${filtered.length} vist`;
+  replaceFilterUrl();
 }
 
 // ──────────────── LIST ────────────────
