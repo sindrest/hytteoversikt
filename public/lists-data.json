@@ -1,6 +1,148 @@
 {
-  "fetchedAt": "2026-09-02T14:17:37.297Z",
+  "fetchedAt": "2026-09-14T13:41:19.209Z",
   "lists": [
+    {
+      "title": "Bo på en øy",
+      "url": "https://tips.inatur.no/fiske/bo-pa-en-oy/137689",
+      "publishedAt": "2026-09-14T11:05:03.000Z",
+      "cabinIds": [
+        "5ad870f2ff973200038172a8",
+        "68fe7e741a70ce12be3aaa3e",
+        "675743ffdef88872856110ee",
+        "50f2ffe9e4b0adea30743b5d",
+        "50f300b2e4b0adea30743b5f",
+        "5c4e2dcfb997ce00039a998f"
+      ]
+    },
+    {
+      "title": "10 hytter for deg som vil høyt til fjells",
+      "url": "https://tips.inatur.no/skjak/10-hytter-for-deg-som-vil-hoyt-til-fjells/137571",
+      "publishedAt": "2026-09-09T13:28:40.000Z",
+      "cabinIds": [
+        "50f2e01fe4b097bd8c0ac7e9",
+        "50f2eba2e4b097bd8c0ac7fc",
+        "50f2ef60e4b097bd8c0ac802",
+        "50f2e7a1e4b097bd8c0ac7f0",
+        "50f2ee35e4b097bd8c0ac800",
+        "50f2f255e4b097bd8c0ac806",
+        "50f2e8a7e4b097bd8c0ac7f4",
+        "50f2e9b5e4b097bd8c0ac7f6",
+        "50f2f5d4e4b097bd8c0ac80a",
+        "50f2e647e4b097bd8c0ac7ed"
+      ]
+    },
+    {
+      "title": "Fem hytter for en aktiv høstferie",
+      "url": "https://tips.inatur.no/fiske-padling-sykkel/fem-hytter-for-en-aktiv-hostferie/137437",
+      "publishedAt": "2026-09-07T07:15:00.000Z",
+      "cabinIds": [
+        "5c88af851b2a770003d64b7b",
+        "62fe2c59e03e4b0f1b5df992",
+        "5f11503731a3c400037ebb80",
+        "649db765bc82930d8ae0411c",
+        "628645e0b2d47471b0d54422"
+      ]
+    },
+    {
+      "title": "Fem hytter for to",
+      "url": "https://tips.inatur.no/fem-hytter-for-to/137489",
+      "publishedAt": "2026-08-20T09:54:40.000Z",
+      "cabinIds": [
+        "62b6c8b037bf784bfb0c7b3d",
+        "5a84456667fc46000321c4dc",
+        "687a2b371185144ac5e48bd8",
+        "5d381264f4248e00036ecdc8",
+        "53cf859fe4b0a77ce4d80279"
+      ]
+    },
+    {
+      "title": "Ukjente hytteperler hos fjellstyrene i Trøndelag",
+      "url": "https://tips.inatur.no/fjellstyrene-trondelag/ukjente-hytteperler-hos-fjellstyrene-i-trondelag/137148",
+      "publishedAt": "2026-08-06T13:29:30.000Z",
+      "cabinIds": [
+        "50f5051de4b06f403b44fcfd",
+        "67ab6d36b9bcbb2c227dac6e",
+        "56a73136e4b04ec5ef46134b",
+        "56a73faae4b04ec5ef46137c",
+        "571784a7e4b045a83180dd43"
+      ]
+    },
+    {
+      "title": "Fjellfisketips for Nord-, Sør-, og Midt-Norge",
+      "url": "https://tips.inatur.no/fjellstyrene-langtur-norges-jeger-og-fiskerforbund/fjellfisketips-for-nord-sor-og-midt-norge/137058",
+      "publishedAt": "2026-08-04T13:40:44.000Z",
+      "cabinIds": [
+        "5885fb8ce4b03e9415222250",
+        "58f8c1afe4b0dfa0f66a8690",
+        "5166fc82e4b066ecb87f3de9"
+      ]
+    },
+    {
+      "title": "Røyene i Ringebu",
+      "url": "https://tips.inatur.no/fjellstyrene-tips-fra-lokalkjente-orret/royene-i-ringebu/136877",
+      "publishedAt": "2026-07-23T13:10:01.000Z",
+      "cabinIds": [
+        "5788cac9e4b0e01b72ec7fa7",
+        "521129a4e4b08f3cf3df4c8f",
+        "51a3561ce4b0fa9ee7398633",
+        "5952de7ae4b0cbbbe65ff556"
+      ]
+    },
+    {
+      "title": "Fiskelykke i Gausdal",
+      "url": "https://tips.inatur.no/fjellstyrene-langsua-nasjonalpark/fiskelykke-i-gausdal/136718",
+      "publishedAt": "2026-07-16T12:42:22.000Z",
+      "cabinIds": [
+        "50f5a7c7e4b07f86c602556b",
+        "6475ef2df667830971cb2b0d",
+        "50f5a215e4b0b1d864388914",
+        "5d96fbaa6d10b60003a5e224"
+      ]
+    },
+    {
+      "title": "10 villmarkshytter du kan leie av lokale fiskerforeninger",
+      "url": "https://tips.inatur.no/fiske-norges-jeger-og-fiskerforbund/10-villmarkshytter-du-kan-leie-av-lokale-fiskerforeninger/136425",
+      "publishedAt": "2026-07-13T12:14:56.000Z",
+      "cabinIds": [
+        "5922c0a1e4b0703ad8717e2d",
+        "644d6c045ee26d5adb7c448d",
+        "5317041ee4b0192ae1a276d9",
+        "50f52e0de4b0a44b2c819911",
+        "571f276de4b07554380ff4a3",
+        "5a26a4dfe4b0335e59315658",
+        "63ce5799f0004a4d8829c842",
+        "665c563aef28005d032c87bc",
+        "6478f98747edf022c4d62d26",
+        "6784dc473eb8b51eb63a9eab"
+      ]
+    },
+    {
+      "title": "Holden fjellgård på Snåsa er en tidsreise i villmarka",
+      "url": "https://tips.inatur.no/fiske-snasa-statskog/holden-fjellgard-pa-snasa-er-en-tidsreise-i-villmarka/136298",
+      "publishedAt": "2026-06-25T08:23:48.000Z",
+      "cabinIds": [
+        "50f919bce4b0fef202bb0159",
+        "50f94442e4b095ae01feaeef",
+        "50f7faa2e4b02488a6045a11"
+      ]
+    },
+    {
+      "title": "10 hyttetips for fiskende familier",
+      "url": "https://tips.inatur.no/fiske-fjellstyrene/10-hyttetips-for-fiskende-familier/135968",
+      "publishedAt": "2026-05-28T16:53:57.000Z",
+      "cabinIds": [
+        "634e8043b597883f4fbad8ee",
+        "59384abfe4b0736852cfdb0e",
+        "655e1e3173324b05b1e786a2",
+        "68ac3c3738728f2b9d1e8079",
+        "50f3ef6ae4b0a76bd875d20d",
+        "649db765bc82930d8ae0411c",
+        "68bed45e636edc65c41941eb",
+        "534659fee4b0b0d99aca7221",
+        "56f585c4e4b0b6db6a8630c8",
+        "5d2a18d7c55d5b0003fd7848"
+      ]
+    },
     {
       "title": "15 mest populære hytter på Inatur i 2025",
       "url": "https://tips.inatur.no/fjellstyrene-statskog/15-mest-populaere-hytter-pa-inatur-i-2025/134880",
@@ -24,56 +166,16 @@
       ]
     },
     {
-      "title": "Våre mest populære hytter i 2024",
-      "url": "https://tips.inatur.no/fjellstyrene-statskog/vare-mest-populaere-hytter-i-2024/131802",
-      "publishedAt": "2025-01-29T15:35:06.000Z",
+      "title": "Hyttetips for den norske sommeren",
+      "url": "https://tips.inatur.no/hyttetips-for-den-norske-sommeren/133303",
+      "publishedAt": "2025-06-19T04:05:09.000Z",
       "cabinIds": [
-        "50f6ab1fe4b0b1d864388a15",
-        "5418288ae4b08d9e585e80b9",
-        "52d68a48e4b05da7388a3cc9",
-        "50f6ad99e4b0b1d864388a16",
-        "534659fee4b0b0d99aca7221",
-        "59884310e4b0b5478865713e",
-        "50f6909de4b0b1d8643889ed",
-        "5f6b2e6ac003fb0003bfc516",
-        "5c5c3c7c8c2a1900033233bd",
-        "50fe7890e4b035e2b64c10e0",
-        "50fcf585e4b024322a9f899e",
-        "5540a98ee4b014557d9e3be6"
-      ]
-    },
-    {
-      "title": "De mest populære hyttene på Inatur i 2023",
-      "url": "https://tips.inatur.no/fiske-jakt/de-mest-populaere-hyttene-pa-inatur-i-2023/100228",
-      "publishedAt": "2023-11-21T21:31:07.000Z",
-      "cabinIds": [
-        "5418288ae4b08d9e585e80b9",
-        "59884310e4b0b5478865713e",
-        "50f46e0ce4b0e07d03ec374a",
-        "5df0fef3ff780d000347cbc3",
-        "50f6ad99e4b0b1d864388a16",
-        "5f6b2e6ac003fb0003bfc516",
-        "50f7f683e4b02488a6045a05",
-        "52d68a48e4b05da7388a3cc9",
-        "50f5b5f5e4b0b1d864388945",
-        "50f6a8fbe4b07f86c6025660"
-      ]
-    },
-    {
-      "title": "10 hytter \"alle\" vil bo på",
-      "url": "https://tips.inatur.no/10-hytter-alle-vil-bo-pa/103509",
-      "publishedAt": "2024-01-09T08:26:49.000Z",
-      "cabinIds": [
-        "5f6b2e6ac003fb0003bfc516",
-        "50f6ab1fe4b0b1d864388a15",
-        "50f6a8fbe4b07f86c6025660",
-        "50f6909de4b0b1d8643889ed",
-        "59884310e4b0b5478865713e",
-        "582d5739e4b0fb671ad99e03",
-        "53465e54e4b0ece96f084bd4",
-        "50f6ad99e4b0b1d864388a16",
-        "5418288ae4b08d9e585e80b9",
-        "50f43710e4b0a76bd875d252"
+        "650c483854d2cb4867306817",
+        "61e67b90f0a60501bbe2e4c6",
+        "5b5f2cacc0321c0003aa1c5b",
+        "56ba21b6e4b048266d61077d",
+        "50f2fcbde4b0adea30743b57",
+        "50f41543e4b0a76bd875d249"
       ]
     },
     {
@@ -94,28 +196,71 @@
       ]
     },
     {
-      "title": "Fem hytter for to",
-      "url": "https://tips.inatur.no/fem-hytter-for-to/137489",
-      "publishedAt": "2026-08-20T09:54:40.000Z",
+      "title": "Våre mest populære hytter i 2024",
+      "url": "https://tips.inatur.no/fjellstyrene-statskog/vare-mest-populaere-hytter-i-2024/131802",
+      "publishedAt": "2025-01-29T15:35:06.000Z",
       "cabinIds": [
-        "62b6c8b037bf784bfb0c7b3d",
-        "5a84456667fc46000321c4dc",
-        "687a2b371185144ac5e48bd8",
-        "5d381264f4248e00036ecdc8",
-        "53cf859fe4b0a77ce4d80279"
+        "50f6ab1fe4b0b1d864388a15",
+        "5418288ae4b08d9e585e80b9",
+        "52d68a48e4b05da7388a3cc9",
+        "50f6ad99e4b0b1d864388a16",
+        "534659fee4b0b0d99aca7221",
+        "59884310e4b0b5478865713e",
+        "50f6909de4b0b1d8643889ed",
+        "5f6b2e6ac003fb0003bfc516",
+        "5c5c3c7c8c2a1900033233bd",
+        "50fe7890e4b035e2b64c10e0",
+        "50fcf585e4b024322a9f899e",
+        "5540a98ee4b014557d9e3be6"
       ]
     },
     {
-      "title": "Hyttetips for den norske sommeren",
-      "url": "https://tips.inatur.no/hyttetips-for-den-norske-sommeren/133303",
-      "publishedAt": "2025-06-19T04:05:09.000Z",
+      "title": "Lykken er en hytte uten mobildekning",
+      "url": "https://tips.inatur.no/fjellstyrene-langtur-nasjonalpark/lykken-er-en-hytte-uten-mobildekning/105622",
+      "publishedAt": "2024-01-15T13:15:53.000Z",
       "cabinIds": [
-        "650c483854d2cb4867306817",
-        "61e67b90f0a60501bbe2e4c6",
-        "5b5f2cacc0321c0003aa1c5b",
-        "56ba21b6e4b048266d61077d",
-        "50f2fcbde4b0adea30743b57",
-        "50f41543e4b0a76bd875d249"
+        "5ccace2467d4c700031294cb",
+        "586f9435e4b03a4059749d2d",
+        "5a27ebb4e4b0130df774d6b1",
+        "54f81a6fe4b093a0807d9b06",
+        "50f81024e4b02488a6045a2e",
+        "50f919bce4b0fef202bb0159",
+        "5a27f685e4b0130df774d6ed",
+        "5360dface4b07e7a513f5bb2"
+      ]
+    },
+    {
+      "title": "10 hytter \"alle\" vil bo på",
+      "url": "https://tips.inatur.no/10-hytter-alle-vil-bo-pa/103509",
+      "publishedAt": "2024-01-09T08:26:49.000Z",
+      "cabinIds": [
+        "5f6b2e6ac003fb0003bfc516",
+        "50f6ab1fe4b0b1d864388a15",
+        "50f6a8fbe4b07f86c6025660",
+        "50f6909de4b0b1d8643889ed",
+        "59884310e4b0b5478865713e",
+        "582d5739e4b0fb671ad99e03",
+        "53465e54e4b0ece96f084bd4",
+        "50f6ad99e4b0b1d864388a16",
+        "5418288ae4b08d9e585e80b9",
+        "50f43710e4b0a76bd875d252"
+      ]
+    },
+    {
+      "title": "De mest populære hyttene på Inatur i 2023",
+      "url": "https://tips.inatur.no/fiske-jakt/de-mest-populaere-hyttene-pa-inatur-i-2023/100228",
+      "publishedAt": "2023-11-21T21:31:07.000Z",
+      "cabinIds": [
+        "5418288ae4b08d9e585e80b9",
+        "59884310e4b0b5478865713e",
+        "50f46e0ce4b0e07d03ec374a",
+        "5df0fef3ff780d000347cbc3",
+        "50f6ad99e4b0b1d864388a16",
+        "5f6b2e6ac003fb0003bfc516",
+        "50f7f683e4b02488a6045a05",
+        "52d68a48e4b05da7388a3cc9",
+        "50f5b5f5e4b0b1d864388945",
+        "50f6a8fbe4b07f86c6025660"
       ]
     }
   ]
