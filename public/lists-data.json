@@ -1,6 +1,42 @@
 {
-  "fetchedAt": "2026-10-12T16:31:55.765Z",
+  "fetchedAt": "2026-10-26T13:56:08.816Z",
   "lists": [
+    {
+      "title": "Hytter med plass til hele gjengen",
+      "url": "https://tips.inatur.no/fjellstyrene-statskog/hytter-med-plass-til-hele-gjengen/138444",
+      "publishedAt": "2026-10-15T10:07:09.000Z",
+      "cabinIds": [
+        "534659fee4b0b0d99aca7221",
+        "64395d5de8b75d0cbdaf1c0d",
+        "6595c3ca646bfd3d8d459ac4",
+        "50f81091e4b02b760e56702f",
+        "5e1d961806548c0003f0ca6a",
+        "5eb98bb03e43e50003914531",
+        "67d5f32435abde2158ac54e5"
+      ]
+    },
+    {
+      "title": "Hytter du ikke får kjørt helt fram til",
+      "url": "https://tips.inatur.no/fjellstyrene-snasa-statskog/hytter-du-ikke-far-kjort-helt-fram-til/138366",
+      "publishedAt": "2026-10-13T11:34:04.000Z",
+      "cabinIds": [
+        "65d38f2fa6d3604af409188b",
+        "50fd21eee4b01d4315176666",
+        "60ae801ecfb56400038cef44",
+        "51d5589de4b070d88e86e769",
+        "50fd2d90e4b01d4315176670"
+      ]
+    },
+    {
+      "title": "Tre fiskehytter på Hardangervidda leies ut på åremål",
+      "url": "https://tips.inatur.no/auksjon-hardangervidda-orret/tre-fiskehytter-pa-hardangervidda-leies-ut-pa-aremal/138334",
+      "publishedAt": "2026-10-09T12:00:08.000Z",
+      "cabinIds": [
+        "6125f8c763f48d0003b2ce7e",
+        "6141a77874abd50003f9f926",
+        "6ac750d523fee835c4e13549"
+      ]
+    },
     {
       "title": "Seks hytter for en helg i Valdres",
       "url": "https://tips.inatur.no/fjellstyrene-valdres/seks-hytter-for-en-helg-i-valdres/138178",
@@ -68,7 +104,6 @@
       "cabinIds": [
         "5ad870f2ff973200038172a8",
         "68fe7e741a70ce12be3aaa3e",
-        "675743ffdef88872856110ee",
         "50f2ffe9e4b0adea30743b5d",
         "50f300b2e4b0adea30743b5f",
         "5c4e2dcfb997ce00039a998f"
@@ -89,6 +124,17 @@
         "50f2e9b5e4b097bd8c0ac7f6",
         "50f2f5d4e4b097bd8c0ac80a",
         "50f2e647e4b097bd8c0ac7ed"
+      ]
+    },
+    {
+      "title": "Fem hytter for en aktiv høstferie",
+      "url": "https://tips.inatur.no/fiske-padling-sykkel/fem-hytter-for-en-aktiv-hostferie/137437",
+      "publishedAt": "2026-09-07T07:15:00.000Z",
+      "cabinIds": [
+        "5c88af851b2a770003d64b7b",
+        "62fe2c59e03e4b0f1b5df992",
+        "649db765bc82930d8ae0411c",
+        "628645e0b2d47471b0d54422"
       ]
     },
     {
@@ -198,6 +244,28 @@
       ]
     },
     {
+      "title": "Prøv en natt i nærmarka",
+      "url": "https://tips.inatur.no/fiske-oslo-trondheim/prov-en-natt-i-naermarka/134150",
+      "publishedAt": "2025-10-24T07:43:08.000Z",
+      "cabinIds": [
+        "66e2d7850203114bc35fcbf9",
+        "6401ba0981fb7b4786064b1f",
+        "64d1dd4432a1973105b20a38"
+      ]
+    },
+    {
+      "title": "Hytter med badstue – og vannet rett utenfor døra",
+      "url": "https://tips.inatur.no/hytter-med-badstue-og-vannet-rett-utenfor-dora/134048",
+      "publishedAt": "2025-10-21T10:17:10.000Z",
+      "cabinIds": [
+        "6874f9142aca5c33b4bc8a13",
+        "657722ed950d971934c45979",
+        "683b5fa885e59a206e092d13",
+        "650c483854d2cb4867306817",
+        "51e829c3e4b06e461959dc28"
+      ]
+    },
+    {
       "title": "Hyttetips for den norske sommeren",
       "url": "https://tips.inatur.no/hyttetips-for-den-norske-sommeren/133303",
       "publishedAt": "2025-06-19T04:05:09.000Z",
@@ -244,6 +312,54 @@
         "50fe7890e4b035e2b64c10e0",
         "50fcf585e4b024322a9f899e",
         "5540a98ee4b014557d9e3be6"
+      ]
+    },
+    {
+      "title": "10 villmarkshytter langt fra folk",
+      "url": "https://tips.inatur.no/langtur-wi-fri/10-villmarkshytter-langt-fra-folk/100442",
+      "publishedAt": "2024-01-24T09:42:00.000Z",
+      "cabinIds": [
+        "63a0e387e1ad0514f389c4af",
+        "517c1706e4b0eaaea6bf45ff",
+        "6478f98747edf022c4d62d26",
+        "50f2e9b5e4b097bd8c0ac7f6",
+        "50f2e01fe4b097bd8c0ac7e9",
+        "5a27f4a3e4b0130df774d6e6",
+        "50fd341ee4b01d4315176684",
+        "5a27ebb4e4b0130df774d6b1",
+        "626ef6f4e92962705a7b27e3",
+        "50f2ec61e4b097bd8c0ac7fe"
+      ]
+    },
+    {
+      "title": "Lykken er en hytte uten mobildekning",
+      "url": "https://tips.inatur.no/fjellstyrene-langtur-nasjonalpark/lykken-er-en-hytte-uten-mobildekning/105622",
+      "publishedAt": "2024-01-15T13:15:53.000Z",
+      "cabinIds": [
+        "5ccace2467d4c700031294cb",
+        "586f9435e4b03a4059749d2d",
+        "5a27ebb4e4b0130df774d6b1",
+        "54f81a6fe4b093a0807d9b06",
+        "50f81024e4b02488a6045a2e",
+        "50f919bce4b0fef202bb0159",
+        "5a27f685e4b0130df774d6ed",
+        "5360dface4b07e7a513f5bb2"
+      ]
+    },
+    {
+      "title": "Hytter ved fiskevann",
+      "url": "https://tips.inatur.no/fiske-fjellstyrene-statskog/hytter-ved-fiskevann/104390",
+      "publishedAt": "2024-01-10T13:57:36.000Z",
+      "cabinIds": [
+        "50ff9461e4b02877c7d1bfe1",
+        "52d68a48e4b05da7388a3cc9",
+        "52f4a367e4b0284c8ea5c5c2",
+        "50ffc58ae4b02877c7d1bffd",
+        "50f3d204e4b0e07d03ec36b3",
+        "50f81186e4b02488a6045a34",
+        "50f3f8f7e4b0e07d03ec36ec",
+        "50f2f055e4b097bd8c0ac804",
+        "52a079ece4b0df9643e8f2ad"
       ]
     },
     {
