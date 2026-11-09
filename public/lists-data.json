@@ -1,6 +1,18 @@
 {
-  "fetchedAt": "2026-11-02T16:51:20.383Z",
+  "fetchedAt": "2026-11-09T17:12:21.212Z",
   "lists": [
+    {
+      "title": "Fem populære hytter du bør være tidlig ute med å bestille",
+      "url": "https://tips.inatur.no/fjellstyrene-statskog/fem-populaere-hytter-du-bor-vaere-tidlig-ute-med-a-bestille/138519",
+      "publishedAt": "2026-11-04T09:06:57.000Z",
+      "cabinIds": [
+        "52d68a48e4b05da7388a3cc9",
+        "5418288ae4b08d9e585e80b9",
+        "50f6ab1fe4b0b1d864388a15",
+        "50f6909de4b0b1d8643889ed",
+        "59884310e4b0b5478865713e"
+      ]
+    },
     {
       "title": "Hytter med plass til hele gjengen",
       "url": "https://tips.inatur.no/fjellstyrene-statskog/hytter-med-plass-til-hele-gjengen/138444",
@@ -16,7 +28,7 @@
       ]
     },
     {
-      "title": "Hytter du ikke får kjørt helt fram til",
+      "title": "Hytter du <span data-lab-italic_desktop=\"italic\" class=\"italic m-italic\">ikke</span> får kjørt helt fram til",
       "url": "https://tips.inatur.no/fjellstyrene-snasa-statskog/hytter-du-ikke-far-kjort-helt-fram-til/138366",
       "publishedAt": "2026-10-13T11:34:04.000Z",
       "cabinIds": [
@@ -162,6 +174,16 @@
       ]
     },
     {
+      "title": "Fjellfisketips for Nord-, Sør-, og Midt-Norge",
+      "url": "https://tips.inatur.no/fjellstyrene-langtur-norges-jeger-og-fiskerforbund/fjellfisketips-for-nord-sor-og-midt-norge/137058",
+      "publishedAt": "2026-08-04T13:40:44.000Z",
+      "cabinIds": [
+        "5885fb8ce4b03e9415222250",
+        "58f8c1afe4b0dfa0f66a8690",
+        "5166fc82e4b066ecb87f3de9"
+      ]
+    },
+    {
       "title": "Ørretbett i Børgefjell",
       "url": "https://tips.inatur.no/borgefjell-fjellstyrene-tips-fra-lokalkjente/orretbett-i-borgefjell/137004",
       "publishedAt": "2026-08-04T09:17:14.000Z",
@@ -170,6 +192,21 @@
         "5b35e82d55ed470003b9e6e5",
         "5b34a4d1606d0a0003df03d0",
         "5b34dac71d29560003009b3d"
+      ]
+    },
+    {
+      "title": "Verdens beste fluefiskere fisker i vann vi andre ofte kjører forbi",
+      "url": "https://tips.inatur.no/fluefiske-harr-kvennanflyfishing/verdens-beste-fluefiskere-fisker-i-vann-vi-andre-ofte-kjorer-forbi/136942",
+      "publishedAt": "2026-07-31T16:28:45.000Z",
+      "cabinIds": [
+        "6051ea58e37cc2000345660d",
+        "5efa5a9c5a4a24000373bfed",
+        "5eb269b4aa5c350003abe13c",
+        "5caf0ca50c42b400034a87d1",
+        "52f4aa5de4b0b9604a829b9d",
+        "59884310e4b0b5478865713e",
+        "674da9320f93f4556afbb38b",
+        "5ac61765db48950003555577"
       ]
     },
     {
@@ -329,6 +366,18 @@
         "5a27ebb4e4b0130df774d6b1",
         "626ef6f4e92962705a7b27e3",
         "50f2ec61e4b097bd8c0ac7fe"
+      ]
+    },
+    {
+      "title": "Fjelloppsynet viser vei til ørreten i Ringebu",
+      "url": "https://tips.inatur.no/fjellstyrene-tips-fra-lokalkjente-orret/fjelloppsynet-viser-vei-til-orreten-i-ringebu/106103",
+      "publishedAt": "2024-01-17T00:30:48.000Z",
+      "cabinIds": [
+        "5788cac9e4b0e01b72ec7fa7",
+        "521129a4e4b08f3cf3df4c8f",
+        "51a3561ce4b0fa9ee7398633",
+        "5952de7ae4b0cbbbe65ff556",
+        "5788d72de4b0e01b72ec8402"
       ]
     },
     {

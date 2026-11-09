@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-02T16:51:20.383Z",
+  "fetchedAt": "2026-11-09T17:12:21.212Z",
   "unmatched": [
     {
       "id": "675743ffdef88872856110ee",
@@ -17,5 +17,7 @@
       "title": "Lykken er en hytte uten mobildekning"
     }
   ],
-  "skippedUrls": []
+  "skippedUrls": [
+    "https://tips.inatur.no/auksjon-hardangervidda-orret/tre-fiskehytter-pa-hardangervidda-leies-ut-pa-aremal/138334"
+  ]
 }
