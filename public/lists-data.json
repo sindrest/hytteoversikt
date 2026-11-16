@@ -1,6 +1,23 @@
 {
-  "fetchedAt": "2026-11-09T17:12:21.212Z",
+  "fetchedAt": "2026-11-16T16:47:16.090Z",
   "lists": [
+    {
+      "title": "Ti tips til hytter for vinterturer",
+      "url": "https://tips.inatur.no/skiloyper/ti-tips-til-hytter-for-vinterturer/138572",
+      "publishedAt": "2026-11-12T08:57:25.000Z",
+      "cabinIds": [
+        "52d68a48e4b05da7388a3cc9",
+        "5be9733e469fdc00036a0464",
+        "5ae179c3f35832000346731d",
+        "6806aa8e815fa26281ad4af3",
+        "520a1558e4b0fcf6c177e233",
+        "687cd84266628a5fe31b2c22",
+        "68a0aed40c3b846c5cb7ca94",
+        "610d0f8957708c0003979de9",
+        "635ea4df89337a7630474240",
+        "5a9d07967c543e00037c924f"
+      ]
+    },
     {
       "title": "Fem populære hytter du bør være tidlig ute med å bestille",
       "url": "https://tips.inatur.no/fjellstyrene-statskog/fem-populaere-hytter-du-bor-vaere-tidlig-ute-med-a-bestille/138519",
@@ -96,7 +113,6 @@
       "url": "https://tips.inatur.no/hostferie-i-siste-liten-ti-ledige-hytter-i-uke-40/137821",
       "publishedAt": "2026-09-24T13:48:59.000Z",
       "cabinIds": [
-        "5efaf53b5a4a24000373c3ba",
         "6a8c8724674e946d10cd6777",
         "68396abccda7d348f3ced258",
         "50f6a2f3e4b0b1d864388a06",
@@ -200,7 +216,6 @@
       "publishedAt": "2026-07-31T16:28:45.000Z",
       "cabinIds": [
         "6051ea58e37cc2000345660d",
-        "5efa5a9c5a4a24000373bfed",
         "5eb269b4aa5c350003abe13c",
         "5caf0ca50c42b400034a87d1",
         "52f4aa5de4b0b9604a829b9d",
@@ -256,6 +271,22 @@
         "534659fee4b0b0d99aca7221",
         "56f585c4e4b0b6db6a8630c8",
         "5d2a18d7c55d5b0003fd7848"
+      ]
+    },
+    {
+      "title": "10 hytter utenom det vanlige",
+      "url": "https://tips.inatur.no/langtur-nasjonalpark/10-hytter-utenom-det-vanlige/104395",
+      "publishedAt": "2026-03-25T16:11:00.000Z",
+      "cabinIds": [
+        "579a444be4b06c93c2cb18cb",
+        "5b163da3577c97000340589e",
+        "5f6b2e6ac003fb0003bfc516",
+        "5b0154983661330003ce8a19",
+        "60913f06a20bee000316fa34",
+        "5d381264f4248e00036ecdc8",
+        "690c830951b0647b5b6cc816",
+        "570607a7e4b0e6deb0d5a857",
+        "5caf0c8c0c42b400034a87cf"
       ]
     },
     {
