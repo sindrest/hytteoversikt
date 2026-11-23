@@ -1,33 +1,5 @@
 {
-  "fetchedAt": "2026-11-16T16:47:16.090Z",
-  "unmatched": [
-    {
-      "id": "5efaf53b5a4a24000373c3ba",
-      "url": "https://tips.inatur.no/hostferie-i-siste-liten-ti-ledige-hytter-i-uke-40/137821",
-      "title": "Høstferie i siste liten: ti ledige hytter i uke 40"
-    },
-    {
-      "id": "675743ffdef88872856110ee",
-      "url": "https://tips.inatur.no/fiske/bo-pa-en-oy/137689",
-      "title": "Bo på en øy"
-    },
-    {
-      "id": "5f11503731a3c400037ebb80",
-      "url": "https://tips.inatur.no/fiske-padling-sykkel/fem-hytter-for-en-aktiv-hostferie/137437",
-      "title": "Fem hytter for en aktiv høstferie"
-    },
-    {
-      "id": "5efa5a9c5a4a24000373bfed",
-      "url": "https://tips.inatur.no/fluefiske-harr-kvennanflyfishing/verdens-beste-fluefiskere-fisker-i-vann-vi-andre-ofte-kjorer-forbi/136942",
-      "title": "Verdens beste fluefiskere fisker i vann vi andre ofte kjører forbi"
-    },
-    {
-      "id": "5ea02063dd90c60003004990",
-      "url": "https://tips.inatur.no/fjellstyrene-langtur-nasjonalpark/lykken-er-en-hytte-uten-mobildekning/105622",
-      "title": "Lykken er en hytte uten mobildekning"
-    }
-  ],
-  "skippedUrls": [
-    "https://tips.inatur.no/auksjon-hardangervidda-orret/tre-fiskehytter-pa-hardangervidda-leies-ut-pa-aremal/138334"
-  ]
+  "fetchedAt": "2026-11-23T18:59:35.630Z",
+  "unmatched": [],
+  "skippedUrls": []
 }
